@@ -1,0 +1,158 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Массовый импорт заданий{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Массовый импорт заданий</h2>
+            <a href="{% url 'task_list' %}" class="btn btn-outline-secondary">← К списку заданий</a>
+        </div>
+
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Импорт из JSON файла</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            
+                            <div class="mb-3">
+                                {{ form.json_file.label_tag }}
+                                {{ form.json_file }}
+                                {% if form.json_file.help_text %}
+                                    <div class="form-text">{{ form.json_file.help_text }}</div>
+                                {% endif %}
+                                {% if form.json_file.errors %}
+                                    <div class="text-danger">{{ form.json_file.errors }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                {{ form.task_type.label_tag }}
+                                {{ form.task_type }}
+                                {% if form.task_type.help_text %}
+                                    <div class="form-text">{{ form.task_type.help_text }}</div>
+                                {% endif %}
+                                {% if form.task_type.errors %}
+                                    <div class="text-danger">{{ form.task_type.errors }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                {{ form.subtype.label_tag }}
+                                {{ form.subtype }}
+                                {% if form.subtype.help_text %}
+                                    <div class="form-text">{{ form.subtype.help_text }}</div>
+                                {% endif %}
+                                {% if form.subtype.errors %}
+                                    <div class="text-danger">{{ form.subtype.errors }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                <a href="{% url 'task_list' %}" class="btn btn-outline-secondary me-md-2">Отмена</a>
+                                <button type="submit" class="btn btn-primary">Импортировать задания</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6>Формат JSON файла</h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="small">JSON файл должен содержать массив объектов. Используются поля:</p>
+                        <ul class="small">
+                            <li><strong>text</strong> - текст задания (HTML)</li>
+                            <li><strong>key</strong> - правильный ответ</li>
+                            <li><strong>difficulty</strong> - сложность (0=легкая, 1=средняя, 2=сложная)</li>
+                        </ul>
+                        <p class="small text-muted">Остальные поля игнорируются</p>
+                        
+                        <h6 class="mt-3">Пример:</h6>
+                        <pre class="small bg-light p-2 rounded"><code>[
+  {
+    "text": "&lt;p&gt;Текст задания...&lt;/p&gt;",
+    "key": "ответ",
+    "difficulty": 0
+  }
+]</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Обновление подтипов при изменении типа задания
+function updateSubtypes() {
+    const taskTypeSelect = document.querySelector('select[name="task_type"]');
+    const subtypeSelect = document.querySelector('select[name="subtype"]');
+    
+    if (taskTypeSelect && subtypeSelect) {
+        const taskType = taskTypeSelect.value;
+        const subtypeChoices = {
+            '1': [['1', 'Соотнесение таблицы и графа']],
+            '2': [['2', 'Строки с пропущенными значениями']],
+            '3': [['3', 'Поиск информации в реляционных базах данных']],
+            '4': [['4', 'Кодирование и декодирование данных. Условие Фано']],
+            '5': [['5', 'Анализ алгоритмов для исполнителей']],
+            '6': [['6', 'Циклические алгоритмы для исполнителя']],
+            '7': [['7', 'Кодирование изображений'], ['7_1', 'Кодирование звуков']],
+            '8': [['8_1', 'Слова по порядку'], ['8_2', 'Подсчет комбинаций']],
+            '9': [['9', 'Обработка числовой информации в электронных таблицах']],
+            '10': [['10', 'Поиск слова в текстовом документе']],
+            '11': [['11', 'Вычисление количества информации']],
+            '12': [['12', 'Алгоритмы для исполнителей с циклами и ветвлениями']],
+            '13': [['13', 'IP адресация']],
+            '14': [['14_1', 'Перевод из 10 с.с.'], ['14_2', 'Перевод в 10 с.с.']],
+            '15': [['15_1', 'Поиск полным перебором'], ['15_2', 'Задания на отрезки']],
+            '16': [['16_1', 'Без использования кеширования'], ['16_2', 'С использованием кеширования']],
+            '17': [['17', 'Обработка целочисленных данных']],
+            '18': [['18', 'Робот-сборщик монет']],
+            '19': [['19', 'Теория игр']],
+            '20': [['20', 'Теория игр']],
+            '21': [['21', 'Теория игр']],
+            '1921': [['19_21_1', 'Задания на 1 кучу'], ['19_21_2', 'Задания на 2 кучи'], ['19_21_3', 'Задания на 3 кучи']],
+            '22': [['22', 'Многопоточные вычисления']],
+            '23': [['23', 'Динамическое программирование. Количество программ']],
+            '24': [['24', 'Обработка тестовых файлов']],
+            '25': [['25', 'Обработка целочисленных данных. Поиск делителей']],
+            '26': [['26', 'Обработка данных с помощью сортировки']],
+            '27': [['27', 'Анализ данных. Кластеризация']]
+        };
+        
+        // Очищаем текущие опции
+        subtypeSelect.innerHTML = '<option value="">Выберите подтип</option>';
+        
+        // Добавляем новые опции
+        if (taskType && subtypeChoices[taskType]) {
+            subtypeChoices[taskType].forEach(function(choice) {
+                const option = document.createElement('option');
+                option.value = choice[0];
+                option.textContent = choice[1];
+                subtypeSelect.appendChild(option);
+            });
+        }
+    }
+}
+
+// Добавляем обработчик события при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    const taskTypeSelect = document.querySelector('select[name="task_type"]');
+    if (taskTypeSelect) {
+        taskTypeSelect.addEventListener('change', updateSubtypes);
+        // Обновляем подтипы при загрузке страницы
+        updateSubtypes();
+    }
+});
+</script>
+{% endblock %}

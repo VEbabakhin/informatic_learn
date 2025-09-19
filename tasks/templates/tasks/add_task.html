@@ -1,0 +1,171 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Добавление задания{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4>Добавление нового задания</h4>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.text.id_for_label }}" class="form-label">{{ form.text.label }}</label>
+                        {{ form.text }}
+                        {% if form.text.errors %}
+                            <div class="text-danger">{{ form.text.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.task_type.id_for_label }}" class="form-label">{{ form.task_type.label }}</label>
+                                {{ form.task_type }}
+                                {% if form.task_type.errors %}
+                                    <div class="text-danger">{{ form.task_type.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.subtype.id_for_label }}" class="form-label">{{ form.subtype.label }}</label>
+                                {{ form.subtype }}
+                                {% if form.subtype.errors %}
+                                    <div class="text-danger">{{ form.subtype.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.difficulty.id_for_label }}" class="form-label">{{ form.difficulty.label }}</label>
+                                {{ form.difficulty }}
+                                {% if form.difficulty.errors %}
+                                    <div class="text-danger">{{ form.difficulty.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.correct_answer.id_for_label }}" class="form-label">{{ form.correct_answer.label }}</label>
+                        {{ form.correct_answer }}
+                        {% if form.correct_answer.errors %}
+                            <div class="text-danger">{{ form.correct_answer.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            {{ form.is_html }}
+                            <label class="form-check-label" for="{{ form.is_html.id_for_label }}">
+                                {{ form.is_html.label }}
+                            </label>
+                        </div>
+                        <small class="form-text text-muted">Отметьте, если текст задания содержит HTML разметку и математические формулы</small>
+                        {% if form.is_html.errors %}
+                            <div class="text-danger">{{ form.is_html.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.image.id_for_label }}" class="form-label">{{ form.image.label }}</label>
+                                {{ form.image }}
+                                {% if form.image.errors %}
+                                    <div class="text-danger">{{ form.image.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.file.id_for_label }}" class="form-label">{{ form.file.label }}</label>
+                                {{ form.file }}
+                                {% if form.file.errors %}
+                                    <div class="text-danger">{{ form.file.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'task_list' %}" class="btn btn-secondary me-md-2">Отмена</a>
+                        <button type="submit" class="btn btn-primary">Добавить задание</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Обновление подтипов при изменении типа задания
+function updateSubtypes() {
+    const taskTypeSelect = document.querySelector('select[name="task_type"]');
+    const subtypeSelect = document.querySelector('select[name="subtype"]');
+    
+    if (taskTypeSelect && subtypeSelect) {
+        const taskType = taskTypeSelect.value;
+        const subtypeChoices = {
+            '1': [['1', 'Соотнесение таблицы и графа']],
+            '2': [['2', 'Строки с пропущенными значениями']],
+            '3': [['3', 'Поиск информации в реляционных базах данных']],
+            '4': [['4', 'Кодирование и декодирование данных. Условие Фано']],
+            '5': [['5', 'Анализ алгоритмов для исполнителей']],
+            '6': [['6', 'Циклические алгоритмы для исполнителя']],
+            '7': [['7', 'Кодирование изображений'], ['7_1', 'Кодирование звуков']],
+            '8': [['8_1', 'Слова по порядку'], ['8_2', 'Подсчет комбинаций']],
+            '9': [['9', 'Обработка числовой информации в электронных таблицах']],
+            '10': [['10', 'Поиск слова в текстовом документе']],
+            '11': [['11', 'Вычисление количества информации']],
+            '12': [['12', 'Алгоритмы для исполнителей с циклами и ветвлениями']],
+            '13': [['13', 'IP адресация']],
+            '14': [['14_1', 'Перевод из 10 с.с.'], ['14_2', 'Перевод в 10 с.с.']],
+            '15': [['15_1', 'Поиск полным перебором'], ['15_2', 'Задания на отрезки']],
+            '16': [['16_1', 'Без использования кеширования'], ['16_2', 'С использованием кеширования']],
+            '17': [['17', 'Обработка целочисленных данных']],
+            '18': [['18', 'Робот-сборщик монет']],
+            '19': [['19', 'Теория игр']],
+            '20': [['20', 'Теория игр']],
+            '21': [['21', 'Теория игр']],
+            '1921': [['19_21_1', 'Задания на 1 кучу'], ['19_21_2', 'Задания на 2 кучи'], ['19_21_3', 'Задания на 3 кучи']],
+            '22': [['22', 'Многопоточные вычисления']],
+            '23': [['23', 'Динамическое программирование. Количество программ']],
+            '24': [['24', 'Обработка тестовых файлов']],
+            '25': [['25', 'Обработка целочисленных данных. Поиск делителей']],
+            '26': [['26', 'Обработка данных с помощью сортировки']],
+            '27': [['27', 'Анализ данных. Кластеризация']]
+        };
+        
+        // Очищаем текущие опции
+        subtypeSelect.innerHTML = '<option value="">Выберите подтип</option>';
+        
+        // Добавляем новые опции
+        if (taskType && subtypeChoices[taskType]) {
+            subtypeChoices[taskType].forEach(function(choice) {
+                const option = document.createElement('option');
+                option.value = choice[0];
+                option.textContent = choice[1];
+                subtypeSelect.appendChild(option);
+            });
+        }
+    }
+}
+
+// Добавляем обработчик события
+document.addEventListener('DOMContentLoaded', function() {
+    const taskTypeSelect = document.querySelector('select[name="task_type"]');
+    if (taskTypeSelect) {
+        taskTypeSelect.addEventListener('change', updateSubtypes);
+    }
+});
+</script>
+{% endblock %}

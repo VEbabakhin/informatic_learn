@@ -1,0 +1,44 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+&rsaquo; {{ title }}
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>{{ title }}</h1>
+
+<div class="results">
+    <table>
+        <thead>
+            <tr>
+                <th>Тип пользователя</th>
+                <th>Количество</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Всего пользователей</td>
+                <td>{{ total_users }}</td>
+            </tr>
+            <tr>
+                <td>Администраторы</td>
+                <td>{{ admin_count }}</td>
+            </tr>
+            <tr>
+                <td>Учителя</td>
+                <td>{{ teacher_count }}</td>
+            </tr>
+            <tr>
+                <td>Ученики</td>
+                <td>{{ student_count }}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}

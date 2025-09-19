@@ -1,0 +1,128 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Задание #{{ task.id }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Задание #{{ task.id }}</h2>
+            <div>
+                <a href="{% url 'task_list' %}" class="btn btn-outline-secondary me-2">← К списку заданий</a>
+                {% if current_user.role == 'admin' or task.created_by == current_user %}
+                    <a href="{% url 'edit_task' task.id %}" class="btn btn-primary me-2">Редактировать</a>
+                    <a href="{% url 'delete_task' task.id %}" class="btn btn-danger">Удалить</a>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <div class="mb-3">
+                    <span class="badge bg-primary me-2">{{ task.get_task_type_display }}</span>
+                    <span class="badge bg-secondary me-2">{{ task.get_subtype_display }}</span>
+                    <span class="badge bg-{% if task.difficulty == 'easy' %}success{% elif task.difficulty == 'medium' %}warning{% else %}danger{% endif %}">
+                        {{ task.get_difficulty_display }}
+                    </span>
+                </div>
+                
+                <div class="mb-4">
+                    <h5>Текст задания:</h5>
+                    <div class="p-3 bg-light rounded">
+                        {% if task.is_html %}
+                            <div class="task-html-content">{{ task.text|safe }}</div>
+                        {% else %}
+                            {{ task.text|linebreaks }}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if task.image %}
+                    <div class="mb-4">
+                        <h5>Изображение:</h5>
+                        <div class="text-center">
+                            <img src="{{ task.image.url }}" alt="Изображение к заданию" class="img-fluid" style="max-width: 100%; max-height: 500px;">
+                        </div>
+                    </div>
+                {% endif %}
+                
+                {% if task.file %}
+                    <div class="mb-4">
+                        <h5>Файл для решения:</h5>
+                        <div>
+                            <a href="{{ task.file.url }}" class="btn btn-outline-primary" download>
+                                <i class="bi bi-download"></i> Скачать файл
+                            </a>
+                            <small class="text-muted ms-2">{{ task.file.name|slice:"7:" }}</small>
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <div class="alert alert-success">
+                    <h5>Правильный ответ:</h5>
+                    <div class="mt-2">{{ task.correct_answer|linebreaks }}</div>
+                </div>
+                
+                <div class="mt-4 pt-3 border-top">
+                    <small class="text-muted">
+                        <strong>Создано:</strong> {{ task.created_by.get_full_name }} ({{ task.created_at|date:"d.m.Y H:i" }})<br>
+                        {% if task.updated_at != task.created_at %}
+                            <strong>Обновлено:</strong> {{ task.updated_at|date:"d.m.Y H:i" }}
+                        {% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+        </div>
+    </div>
+
+<script>
+// Принудительно перезапускаем MathJax для обработки формул
+document.addEventListener('DOMContentLoaded', function() {
+    function processMathJax() {
+        if (window.MathJax && window.MathJax.typesetPromise) {
+            // Исправляем экранированные символы в формулах
+            const htmlContentDivs = document.querySelectorAll('.task-html-content');
+            htmlContentDivs.forEach(function(div) {
+                let content = div.innerHTML;
+            // Заменяем span теги на правильные MathJax разделители
+            content = content.replace(/<span>\\<\/span>\(/g, '\\(');
+            content = content.replace(/<span>\\<\/span>\)/g, '\\)');
+            content = content.replace(/<span>\\<\/span>\[/g, '\\[');
+            content = content.replace(/<span>\\<\/span>\]/g, '\\]');
+            
+            // Также заменяем одиночные span теги
+            content = content.replace(/<span>\\<\/span>/g, '\\');
+            
+            // Убираем лишние слэши в начале и конце формул
+            content = content.replace(/\\\(/g, '(');
+            content = content.replace(/\\\)/g, ')');
+            content = content.replace(/\\\[/g, '[');
+            content = content.replace(/\\\]/g, ']');
+            
+            // Очищаем лишние символы \n
+            content = content.replace(/\\n/g, '');
+                
+                div.innerHTML = content;
+            });
+            
+            window.MathJax.typesetPromise().then(function() {
+                console.log('MathJax обработка завершена (detail)');
+            }).catch(function(err) {
+                console.log('MathJax ошибка (detail):', err);
+            });
+        } else if (window.MathJax && window.MathJax.typeset) {
+            // Fallback для старых версий MathJax
+            window.MathJax.typeset();
+            console.log('MathJax обработка завершена (detail, typeset)');
+        } else {
+            // Если MathJax еще не загружен, ждем
+            setTimeout(processMathJax, 100);
+        }
+    }
+    
+    // Запускаем обработку MathJax
+    processMathJax();
+});
+</script>
+{% endblock %}

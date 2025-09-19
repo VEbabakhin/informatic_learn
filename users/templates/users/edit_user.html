@@ -1,0 +1,47 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Редактирование пользователя{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Редактирование пользователя</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Логин</label>
+                        <input type="text" class="form-control" id="username" name="username" 
+                               value="{{ user_to_edit.username }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="first_name" class="form-label">Имя</label>
+                        <input type="text" class="form-control" id="first_name" name="first_name" 
+                               value="{{ user_to_edit.first_name }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="last_name" class="form-label">Фамилия</label>
+                        <input type="text" class="form-control" id="last_name" name="last_name" 
+                               value="{{ user_to_edit.last_name }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="role" class="form-label">Роль</label>
+                        <select class="form-select" id="role" name="role" required>
+                            <option value="admin" {% if user_to_edit.role == 'admin' %}selected{% endif %}>Администратор</option>
+                            <option value="teacher" {% if user_to_edit.role == 'teacher' %}selected{% endif %}>Учитель</option>
+                            <option value="student" {% if user_to_edit.role == 'student' %}selected{% endif %}>Ученик</option>
+                        </select>
+                    </div>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'user_list' %}" class="btn btn-secondary me-md-2">Отмена</a>
+                        <button type="submit" class="btn btn-primary">Сохранить</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

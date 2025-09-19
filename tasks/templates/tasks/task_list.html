@@ -1,0 +1,454 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Банк заданий{% endblock %}
+
+<!-- Принудительное обновление кэша -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Банк заданий</h2>
+            <div class="d-flex align-items-center gap-3">
+                <!-- Селектор количества заданий на странице -->
+                <div class="d-flex align-items-center">
+                    <label for="per_page" class="form-label me-2 mb-0 small">На странице:</label>
+                    <select id="per_page" class="form-select form-select-sm" style="width: auto;" onchange="changePerPage()">
+                        <option value="5" {% if request.GET.per_page == '5' %}selected{% endif %}>5</option>
+                        <option value="10" {% if request.GET.per_page == '10' or not request.GET.per_page %}selected{% endif %}>10</option>
+                        <option value="20" {% if request.GET.per_page == '20' %}selected{% endif %}>20</option>
+                        <option value="50" {% if request.GET.per_page == '50' %}selected{% endif %}>50</option>
+                    </select>
+                </div>
+                
+                {% if current_user.role == 'admin' or current_user.role == 'teacher' %}
+                    <div class="btn-group" role="group">
+                        <a href="{% url 'add_task' %}" class="btn btn-primary">Добавить задание</a>
+                        <a href="{% url 'bulk_import' %}" class="btn btn-success">Массовый импорт</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Фильтры -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Фильтры</h5>
+            </div>
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-2">
+                        {{ filter_form.task_type }}
+                    </div>
+                    <div class="col-md-2">
+                        {{ filter_form.subtype }}
+                    </div>
+                    <div class="col-md-2">
+                        {{ filter_form.difficulty }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ filter_form.search }}
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-outline-primary me-2">Применить</button>
+                        <a href="{% url 'task_list' %}" class="btn btn-outline-secondary">Сбросить</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Список заданий -->
+        <div id="tasks-container">
+            {% if page_obj %}
+                {% for task in page_obj %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title">Задание</h5>
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                    Действия
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="{% url 'task_detail' task.id %}">Просмотр</a></li>
+                                    {% if current_user.role == 'admin' or task.created_by == current_user %}
+                                        <li><a class="dropdown-item" href="{% url 'edit_task' task.id %}">Редактировать</a></li>
+                                        <li><a class="dropdown-item text-danger" href="{% url 'delete_task' task.id %}">Удалить</a></li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <span class="badge bg-dark me-2">{{ task.id }}</span>
+                            <span class="badge bg-primary me-2">{{ task.get_task_type_display }}</span>
+                            <span class="badge bg-{% if task.difficulty == 'easy' %}success{% elif task.difficulty == 'medium' %}warning{% else %}danger{% endif %}">
+                                {{ task.get_difficulty_display }}
+                            </span>
+                        </div>
+                        
+                            <div class="mb-3">
+                                <strong>Текст задания:</strong>
+                                <div class="mt-2">
+                                    {% if task.is_html %}
+                                        <div class="task-html-content">{{ task.text|safe }}</div>
+                                    {% else %}
+                                        {{ task.text|linebreaks }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        
+                        {% if task.image %}
+                            <div class="mb-3">
+                                <strong>Изображение:</strong>
+                                <div class="mt-2">
+                                    <img src="{{ task.image.url }}" alt="Изображение к заданию" class="img-fluid" style="max-width: 500px;">
+                                </div>
+                            </div>
+                        {% endif %}
+                        
+                        {% if task.file %}
+                            <div class="mb-3">
+                                <strong>Файл для решения:</strong>
+                                <div class="mt-2">
+                                    <a href="{{ task.file.url }}" class="btn btn-sm btn-outline-primary" download>
+                                        <i class="bi bi-download"></i> Скачать файл
+                                    </a>
+                                </div>
+                            </div>
+                        {% endif %}
+                        
+                        <div class="alert alert-info mb-0">
+                            <strong>Правильный ответ:</strong> {{ task.correct_answer }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <!-- Индикатор загрузки -->
+        <div id="loading-indicator" class="text-center mt-4" style="display: none;">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Загрузка...</span>
+            </div>
+            <p class="mt-2">Загружаем задания...</p>
+        </div>
+        
+        <!-- Индикатор конца списка -->
+        <div id="end-indicator" class="text-center mt-4" style="display: none;">
+            <div class="alert alert-info">
+                <i class="bi bi-check-circle"></i> Все задания загружены
+            </div>
+        </div>
+
+        <!-- Скрытый контейнер для проверки пагинации -->
+        <div id="pagination-container" style="display: none;">
+            {% if page_obj.has_other_pages %}
+                <div class="pagination"></div>
+            {% endif %}
+        </div>
+        
+        <!-- Сообщение, если заданий нет -->
+        {% if not page_obj %}
+            <div class="alert alert-info">
+                <h4>Задания не найдены</h4>
+                <p>По выбранным фильтрам задания не найдены. Попробуйте изменить параметры поиска.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+// Глобальные переменные для бесконечной прокрутки
+let currentPage = 1;
+let isLoading = false;
+let hasMorePages = true;
+let currentFilters = {};
+
+// Обновление подтипов при изменении типа задания
+function updateSubtypes() {
+    const taskTypeSelect = document.querySelector('select[name="task_type"]');
+    const subtypeSelect = document.querySelector('select[name="subtype"]');
+    
+    if (taskTypeSelect && subtypeSelect) {
+        const taskType = taskTypeSelect.value;
+        const subtypeChoices = {
+            '1': [['1', 'Соотнесение таблицы и графа']],
+            '2': [['2', 'Строки с пропущенными значениями']],
+            '3': [['3', 'Поиск информации в реляционных базах данных']],
+            '4': [['4', 'Кодирование и декодирование данных. Условие Фано']],
+            '5': [['5', 'Анализ алгоритмов для исполнителей']],
+            '6': [['6', 'Циклические алгоритмы для исполнителя']],
+            '7': [['7', 'Кодирование изображений'], ['7_1', 'Кодирование звуков']],
+            '8': [['8_1', 'Слова по порядку'], ['8_2', 'Подсчет комбинаций']],
+            '9': [['9', 'Обработка числовой информации в электронных таблицах']],
+            '10': [['10', 'Поиск слова в текстовом документе']],
+            '11': [['11', 'Вычисление количества информации']],
+            '12': [['12', 'Алгоритмы для исполнителей с циклами и ветвлениями']],
+            '13': [['13', 'IP адресация']],
+            '14': [['14_1', 'Перевод из 10 с.с.'], ['14_2', 'Перевод в 10 с.с.']],
+            '15': [['15_1', 'Поиск полным перебором'], ['15_2', 'Задания на отрезки']],
+            '16': [['16_1', 'Без использования кеширования'], ['16_2', 'С использованием кеширования']],
+            '17': [['17', 'Обработка целочисленных данных']],
+            '18': [['18', 'Робот-сборщик монет']],
+            '19': [['19', 'Теория игр']],
+            '20': [['20', 'Теория игр']],
+            '21': [['21', 'Теория игр']],
+            '1921': [['19_21_1', 'Задания на 1 кучу'], ['19_21_2', 'Задания на 2 кучи'], ['19_21_3', 'Задания на 3 кучи']],
+            '22': [['22', 'Многопоточные вычисления']],
+            '23': [['23', 'Динамическое программирование. Количество программ']],
+            '24': [['24', 'Обработка тестовых файлов']],
+            '25': [['25', 'Обработка целочисленных данных. Поиск делителей']],
+            '26': [['26', 'Обработка данных с помощью сортировки']],
+            '27': [['27', 'Анализ данных. Кластеризация']]
+        };
+        
+        // Очищаем текущие опции
+        subtypeSelect.innerHTML = '<option value="">Все подтипы</option>';
+        
+        // Добавляем новые опции
+        if (taskType && subtypeChoices[taskType]) {
+            subtypeChoices[taskType].forEach(function(choice) {
+                const option = document.createElement('option');
+                option.value = choice[0];
+                option.textContent = choice[1];
+                subtypeSelect.appendChild(option);
+            });
+        }
+    }
+}
+
+// Функция изменения количества заданий на странице
+function changePerPage() {
+    const perPageSelect = document.getElementById('per_page');
+    const perPage = perPageSelect.value;
+    
+    // Обновляем фильтры
+    currentFilters.per_page = perPage;
+    
+    // Сбрасываем состояние бесконечной прокрутки
+    resetInfiniteScroll();
+    loadTasks();
+}
+
+// Функция загрузки заданий через AJAX
+function loadTasks(append = false) {
+    if (isLoading || !hasMorePages) return;
+    
+    const loadingIndicator = document.getElementById('loading-indicator');
+    const tasksContainer = document.getElementById('tasks-container');
+    
+    isLoading = true;
+    
+    // Показываем индикатор загрузки
+    loadingIndicator.style.display = 'block';
+    
+    // Собираем параметры запроса
+    const params = new URLSearchParams();
+    params.set('page', currentPage);
+    
+    // Добавляем фильтры
+    Object.keys(currentFilters).forEach(key => {
+        if (currentFilters[key]) {
+            params.set(key, currentFilters[key]);
+        }
+    });
+    
+    // Выполняем AJAX запрос
+    fetch(`?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.text())
+    .then(html => {
+        // Создаем временный элемент для парсинга HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        
+        // Извлекаем контент заданий
+        const newTasksContainer = tempDiv.querySelector('#tasks-container');
+        if (newTasksContainer) {
+            if (append) {
+                // Добавляем новые задания к существующим
+                tasksContainer.innerHTML += newTasksContainer.innerHTML;
+            } else {
+                // Заменяем весь контент
+                tasksContainer.innerHTML = newTasksContainer.innerHTML;
+            }
+        }
+        
+        // Проверяем, есть ли еще страницы
+        const paginationContainer = tempDiv.querySelector('#pagination-container');
+        if (paginationContainer) {
+            const hasOtherPages = paginationContainer.querySelector('.pagination');
+            hasMorePages = hasOtherPages !== null;
+        } else {
+            hasMorePages = false;
+        }
+        
+        // Показываем индикатор конца списка, если больше нет страниц
+        if (!hasMorePages && append) {
+            const endIndicator = document.getElementById('end-indicator');
+            if (endIndicator) {
+                endIndicator.style.display = 'block';
+            }
+        }
+        
+        // Обрабатываем MathJax
+        processMathJax();
+        
+        // Скрываем индикатор загрузки
+        loadingIndicator.style.display = 'none';
+        isLoading = false;
+        
+        // Если это не первая загрузка, увеличиваем номер страницы
+        if (append) {
+            currentPage++;
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка загрузки заданий:', error);
+        loadingIndicator.style.display = 'none';
+        isLoading = false;
+        alert('Ошибка загрузки заданий. Попробуйте обновить страницу.');
+    });
+}
+
+// Функция обработки MathJax
+function processMathJax() {
+    if (window.MathJax && window.MathJax.typesetPromise) {
+        // Исправляем экранированные символы в формулах
+        const htmlContentDivs = document.querySelectorAll('.task-html-content');
+        htmlContentDivs.forEach(function(div) {
+            let content = div.innerHTML;
+            
+            // Заменяем span теги на правильные MathJax разделители
+            content = content.replace(/<span>\\<\/span>\(/g, '\\(');
+            content = content.replace(/<span>\\<\/span>\)/g, '\\)');
+            content = content.replace(/<span>\\<\/span>\[/g, '\\[');
+            content = content.replace(/<span>\\<\/span>\]/g, '\\]');
+            
+            // Также заменяем одиночные span теги
+            content = content.replace(/<span>\\<\/span>/g, '\\');
+            
+            // Убираем лишние слэши в начале и конце формул
+            content = content.replace(/\\\(/g, '(');
+            content = content.replace(/\\\)/g, ')');
+            content = content.replace(/\\\[/g, '[');
+            content = content.replace(/\\\]/g, ']');
+            
+            // Очищаем лишние символы \n
+            content = content.replace(/\\n/g, '');
+            
+            div.innerHTML = content;
+        });
+        
+        window.MathJax.typesetPromise().then(function() {
+            console.log('MathJax обработка завершена');
+        }).catch(function(err) {
+            console.log('MathJax ошибка:', err);
+        });
+    } else if (window.MathJax && window.MathJax.typeset) {
+        // Fallback для старых версий MathJax
+        window.MathJax.typeset();
+        console.log('MathJax обработка завершена (typeset)');
+    } else {
+        // Если MathJax еще не загружен, ждем
+        setTimeout(processMathJax, 100);
+    }
+}
+
+// Функция обработки прокрутки для бесконечной загрузки
+function handleScroll() {
+    // Проверяем, доскроллил ли пользователь до конца страницы
+    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 1000) {
+        // Загружаем следующую страницу
+        loadTasks(true);
+    }
+}
+
+// Функция сброса состояния для новых фильтров
+function resetInfiniteScroll() {
+    currentPage = 1;
+    hasMorePages = true;
+    isLoading = false;
+    
+    // Очищаем контейнер заданий
+    const tasksContainer = document.getElementById('tasks-container');
+    tasksContainer.innerHTML = '';
+    
+    // Скрываем индикатор конца списка
+    const endIndicator = document.getElementById('end-indicator');
+    if (endIndicator) {
+        endIndicator.style.display = 'none';
+    }
+}
+
+// Добавляем обработчик события при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    // Инициализируем фильтры из URL
+    const urlParams = new URLSearchParams(window.location.search);
+    currentPage = parseInt(urlParams.get('page')) || 1;
+    currentFilters = {
+        task_type: urlParams.get('task_type') || '',
+        subtype: urlParams.get('subtype') || '',
+        difficulty: urlParams.get('difficulty') || '',
+        search: urlParams.get('search') || '',
+        per_page: urlParams.get('per_page') || '10'
+    };
+    
+    // Обработчик для формы фильтров
+    const filterForm = document.querySelector('form[method="get"]');
+    if (filterForm) {
+        filterForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Собираем данные формы
+            const formData = new FormData(filterForm);
+            currentFilters = {};
+            for (let [key, value] of formData.entries()) {
+                currentFilters[key] = value;
+            }
+            
+            // Сбрасываем состояние бесконечной прокрутки
+            resetInfiniteScroll();
+            loadTasks();
+        });
+    }
+    
+    // Обработчик для селектора per_page
+    const perPageSelect = document.getElementById('per_page');
+    if (perPageSelect) {
+        perPageSelect.addEventListener('change', changePerPage);
+    }
+    
+    // Обработчик для типа задания
+    const taskTypeSelect = document.querySelector('select[name="task_type"]');
+    if (taskTypeSelect) {
+        taskTypeSelect.addEventListener('change', function() {
+            updateSubtypes();
+            // Сбрасываем подтип при изменении типа
+            const subtypeSelect = document.querySelector('select[name="subtype"]');
+            if (subtypeSelect) {
+                subtypeSelect.value = '';
+            }
+        });
+        // Обновляем подтипы при загрузке страницы
+        updateSubtypes();
+    }
+    
+    // Добавляем обработчик прокрутки для бесконечной загрузки
+    window.addEventListener('scroll', handleScroll);
+    
+    // Обрабатываем MathJax при загрузке
+    processMathJax();
+});
+</script>
+{% endblock %}

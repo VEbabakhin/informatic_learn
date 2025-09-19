@@ -1,0 +1,44 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:users_user_changelist' %}">Пользователи</a>
+&rsaquo; {{ title }}
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>{{ title }}</h1>
+
+<form method="post">
+    {% csrf_token %}
+    <fieldset class="module aligned">
+        <h2>Массовое создание пользователей</h2>
+        <div class="form-row">
+            <div>
+                <label for="id_users_data">Данные пользователей:</label>
+                <textarea name="users_data" id="id_users_data" rows="10" cols="50" placeholder="Введите данные пользователей в формате:&#10;Фамилия Имя&#10;Фамилия2 Имя2"></textarea>
+                <p class="help">Введите данные пользователей, каждый с новой строки в формате "Фамилия Имя"</p>
+            </div>
+        </div>
+        <div class="form-row">
+            <div>
+                <label for="id_role">Роль:</label>
+                <select name="role" id="id_role">
+                    <option value="student">Ученик</option>
+                    <option value="teacher">Учитель</option>
+                </select>
+            </div>
+        </div>
+    </fieldset>
+    
+    <div class="submit-row">
+        <input type="submit" value="Создать пользователей" class="default">
+        <a href="{% url 'admin:users_user_changelist' %}" class="button">Отмена</a>
+    </div>
+</form>
+{% endblock %}

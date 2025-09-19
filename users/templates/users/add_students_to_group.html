@@ -1,0 +1,42 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Добавление учеников в группу{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4>Добавление учеников в группу "{{ group.name }}"</h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.students.label }}</label>
+                        <div class="row">
+                            {% for student in form.students %}
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        {{ student.tag }}
+                                        <label class="form-check-label" for="{{ student.id_for_label }}">
+                                            {{ student.choice_label }}
+                                        </label>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        {% if form.students.errors %}
+                            <div class="text-danger">{{ form.students.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">Добавить выбранных учеников</button>
+                        <a href="{% url 'group_list' %}" class="btn btn-secondary">Отмена</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

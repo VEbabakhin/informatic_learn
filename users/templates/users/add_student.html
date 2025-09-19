@@ -1,0 +1,32 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Добавление ученика{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h4>Добавление ученика</h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="{{ form.students_data.id_for_label }}" class="form-label">{{ form.students_data.label }}</label>
+                        {{ form.students_data }}
+                        <div class="form-text">{{ form.students_data.help_text }}</div>
+                        {% if form.students_data.errors %}
+                            <div class="text-danger">{{ form.students_data.errors }}</div>
+                        {% endif %}
+                    </div>
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm">Добавить учеников</button>
+                    <a href="{% url 'user_list' %}" class="btn btn-secondary btn-sm">Отмена</a>
+                </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
