@@ -1,0 +1,349 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Редактирование группы{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-people"></i> Редактирование группы "{{ group.name }}"</h2>
+                <div>
+                    <a href="{% url 'group_list' %}" class="btn btn-secondary me-2">
+                        <i class="bi bi-arrow-left"></i> Назад к списку групп
+                    </a>
+                    <a href="{% url 'delete_group' group.id %}" class="btn btn-danger" 
+                       onclick="return confirm('Вы уверены, что хотите удалить группу? Это действие нельзя отменить!')">
+                        <i class="bi bi-trash"></i> Удалить группу
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Название группы -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-pencil"></i> Название группы</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="group-name-form">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-8">
+                                {{ form.name }}
+                                {% if form.name.errors %}
+                                    <div class="text-danger mt-2">
+                                        {% for error in form.name.errors %}
+                                            <small>{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-check-circle"></i> Сохранить название
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Ученики в группе -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-people-fill"></i> Ученики в группе 
+                        <span class="badge bg-light text-dark">{{ students_in_group.count }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if students_in_group %}
+                        <div class="list-group" id="students-in-group">
+                            {% for student in students_in_group %}
+                                <div class="list-group-item d-flex justify-content-between align-items-center" 
+                                     data-student-id="{{ student.id }}">
+                                    <div>
+                                        <strong>{{ student.get_full_name }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ student.email }}</small>
+                                    </div>
+                                    <button type="button" 
+                                            class="btn btn-sm remove-student-btn"
+                                            data-student-id="{{ student.id }}"
+                                            data-student-name="{{ student.get_full_name }}"
+                                            title="Удалить из группы">
+                                        ×
+                                    </button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-people display-4"></i>
+                            <p class="mt-2">В группе пока нет учеников</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Доступные ученики -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-person-plus-circle"></i> Доступные ученики 
+                        <span class="badge bg-light text-dark">{{ available_students.count }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if available_students %}
+                        <div class="list-group" id="available-students">
+                            {% for student in available_students %}
+                                <div class="list-group-item d-flex justify-content-between align-items-center" 
+                                     data-student-id="{{ student.id }}">
+                                    <div>
+                                        <strong>{{ student.get_full_name }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ student.email }}</small>
+                                    </div>
+                                    <button type="button" 
+                                            class="btn btn-sm add-student-btn"
+                                            data-student-id="{{ student.id }}"
+                                            data-student-name="{{ student.get_full_name }}"
+                                            title="Добавить в группу">
+                                        +
+                                    </button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-check-circle-fill display-4"></i>
+                            <p class="mt-2">Все ученики уже в группе</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Уведомления -->
+<div id="notifications" class="position-fixed" style="top: 20px; right: 20px; z-index: 1050;"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const groupId = {{ group.id }};
+    
+    // Обработчик удаления ученика из группы
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-student-btn')) {
+            const btn = e.target.closest('.remove-student-btn');
+            const studentId = btn.dataset.studentId;
+            const studentName = btn.dataset.studentName;
+            
+            if (confirm(`Удалить ${studentName} из группы?`)) {
+                removeStudentFromGroup(groupId, studentId, btn);
+            }
+        }
+    });
+    
+    // Обработчик добавления ученика в группу
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.add-student-btn')) {
+            const btn = e.target.closest('.add-student-btn');
+            const studentId = btn.dataset.studentId;
+            const studentName = btn.dataset.studentName;
+            
+            addStudentToGroup(groupId, studentId, btn);
+        }
+    });
+    
+    function removeStudentFromGroup(groupId, studentId, btn) {
+        fetch(`{% url 'remove_student_from_group' 0 0 %}`.replace('0/0', groupId + '/' + studentId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Перемещаем ученика в список доступных
+                const studentItem = btn.closest('.list-group-item');
+                const studentName = btn.dataset.studentName;
+                const studentEmail = studentItem.querySelector('small').textContent;
+                
+                // Создаем новый элемент для списка доступных
+                const newItem = createStudentItem(studentId, studentName, studentEmail, 'add');
+                
+                // Добавляем в список доступных
+                document.getElementById('available-students').appendChild(newItem);
+                
+                // Удаляем из списка в группе
+                studentItem.remove();
+                
+                // Обновляем счетчики
+                updateCounters();
+                
+                showNotification(data.message, 'success');
+            } else {
+                showNotification(data.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            showNotification('Ошибка при удалении ученика', 'error');
+        });
+    }
+    
+    function addStudentToGroup(groupId, studentId, btn) {
+        fetch(`{% url 'add_student_to_group' 0 0 %}`.replace('0/0', groupId + '/' + studentId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Перемещаем ученика в список группы
+                const studentItem = btn.closest('.list-group-item');
+                const studentName = btn.dataset.studentName;
+                const studentEmail = studentItem.querySelector('small').textContent;
+                
+                // Создаем новый элемент для списка группы
+                const newItem = createStudentItem(studentId, studentName, studentEmail, 'remove');
+                
+                // Добавляем в список группы
+                document.getElementById('students-in-group').appendChild(newItem);
+                
+                // Удаляем из списка доступных
+                studentItem.remove();
+                
+                // Обновляем счетчики
+                updateCounters();
+                
+                showNotification(data.message, 'success');
+            } else {
+                showNotification(data.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            showNotification('Ошибка при добавлении ученика', 'error');
+        });
+    }
+    
+    function createStudentItem(studentId, studentName, studentEmail, action) {
+        const item = document.createElement('div');
+        item.className = 'list-group-item d-flex justify-content-between align-items-center';
+        item.setAttribute('data-student-id', studentId);
+        
+        const isAdd = action === 'add';
+        const buttonClass = isAdd ? 'add-student-btn' : 'remove-student-btn';
+        const buttonIcon = isAdd ? '+' : '×';
+        const buttonTitle = isAdd ? 'Добавить в группу' : 'Удалить из группы';
+        
+        item.innerHTML = `
+            <div>
+                <small><strong>${studentName}</strong></small>
+                <br>
+                <small class="text-muted" style="font-size: 0.75rem;">${studentEmail}</small>
+            </div>
+            <button type="button" 
+                    class="btn ${buttonClass} btn-sm"
+                    data-student-id="${studentId}"
+                    data-student-name="${studentName}"
+                    title="${buttonTitle}">
+                ${buttonIcon}
+            </button>
+        `;
+        
+        return item;
+    }
+    
+    function updateCounters() {
+        const inGroupCount = document.querySelectorAll('#students-in-group .list-group-item').length;
+        const availableCount = document.querySelectorAll('#available-students .list-group-item').length;
+        
+        document.querySelector('.bg-success .badge').textContent = inGroupCount;
+        document.querySelector('.bg-info .badge').textContent = availableCount;
+    }
+    
+    function showNotification(message, type) {
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show`;
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.getElementById('notifications').appendChild(notification);
+        
+        // Автоматически скрываем через 3 секунды
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 3000);
+    }
+});
+</script>
+
+<style>
+.list-group-item {
+    border-radius: 8px !important;
+    margin-bottom: 8px;
+}
+
+.btn-sm {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.8rem;
+    border-radius: 4px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.add-student-btn {
+    background-color: #28a745;
+    border-color: #28a745;
+    color: white;
+}
+
+.remove-student-btn {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: white;
+}
+
+#notifications .alert {
+    margin-bottom: 0.5rem;
+    min-width: 300px;
+    border-radius: 8px;
+}
+
+.card {
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.card-header {
+    border-radius: 12px 12px 0 0 !important;
+}
+</style>
+{% endblock %}

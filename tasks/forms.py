@@ -1,5 +1,5 @@
 from django import forms
-from .models import Task
+from .models import Task, ImportSession
 import json
 
 class TaskForm(forms.ModelForm):
@@ -53,11 +53,21 @@ class TaskFilterForm(forms.Form):
         required=False,
         widget=forms.Select(attrs={'class': 'form-select'})
     )
+    task_id = forms.IntegerField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'ID задания',
+            'style': 'width: 100%; min-width: 120px;',
+            'inputmode': 'numeric',
+            'pattern': '[0-9]*'
+        })
+    )
     search = forms.CharField(
         required=False,
         widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Поиск по тексту задания...'
+            'placeholder': 'Поиск по тексту, ответу, типу задания...'
         })
     )
 

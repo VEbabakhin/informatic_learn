@@ -5,31 +5,83 @@
 {% block content %}
 <div class="row">
     <div class="col-md-8">
-        <h2>Группа "{{ group.name }}"</h2>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2>Группа "{{ group.name }}"</h2>
+            <a href="{% url 'edit_group' group.id %}" class="btn btn-warning btn-sm">
+                <i class="bi bi-pencil"></i> Редактировать
+            </a>
+        </div>
         <p class="text-muted">Создана: {{ group.created_at|date:"d.m.Y H:i" }}</p>
         
-        {% if students %}
-            <h4>Ученики в группе ({{ students.count }})</h4>
+        {% if group.students.all %}
+            <h4>Ученики в группе ({{ group.students.count }})</h4>
+            
+            <!-- Форма для удаления учеников -->
+            <form method="post" class="mb-4">
+                {% csrf_token %}
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Удаление учеников из группы</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if form.students.field.queryset %}
+                            <div class="mb-3">
+                                <label class="form-label">Выберите учеников для удаления:</label>
+                                <div class="row">
+                                    {% for student in form.students %}
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                {{ student.tag }}
+                                                <label class="form-check-label" for="{{ student.id_for_label }}">
+                                                    {{ student.choice_label }}
+                                                </label>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-danger" onclick="return confirm('Вы уверены, что хотите удалить выбранных учеников из группы?')">
+                                <i class="bi bi-trash"></i> Удалить выбранных учеников
+                            </button>
+                        {% else %}
+                            <p class="text-muted">В группе нет учеников для удаления</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </form>
+            
+            <!-- Список всех учеников -->
             <div class="table-responsive">
                 <table class="table table-striped">
                     <thead>
                         <tr>
                             <th>ФИО</th>
                             <th>Логин</th>
+                            <th>Дата добавления</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for student in students %}
+                        {% for student in group.students.all %}
                         <tr>
                             <td>{{ student.get_full_name }}</td>
                             <td>{{ student.username }}</td>
+                            <td>
+                                {% for user_group in group.group_users.all %}
+                                    {% if user_group.user == student %}
+                                        {{ user_group.created_at|date:"d.m.Y H:i" }}
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
         {% else %}
-            <p>В группе пока нет учеников</p>
+            <div class="alert alert-info">
+                <h5>В группе пока нет учеников</h5>
+                <p>Добавьте учеников в группу, чтобы начать работу с ними.</p>
+            </div>
         {% endif %}
     </div>
     
@@ -39,8 +91,15 @@
                 <h5>Действия</h5>
             </div>
             <div class="card-body">
-                <a href="{% url 'add_students_to_group' group.id %}" class="btn btn-success w-100">Добавить учеников</a>
-                <a href="{% url 'group_list' %}" class="btn btn-secondary w-100 mt-2">Назад к списку групп</a>
+                <a href="{% url 'add_students_to_group' group.id %}" class="btn btn-success w-100 mb-2">
+                    <i class="bi bi-person-plus"></i> Добавить учеников
+                </a>
+                <a href="{% url 'edit_group' group.id %}" class="btn btn-warning w-100 mb-2">
+                    <i class="bi bi-pencil"></i> Редактировать группу
+                </a>
+                <a href="{% url 'group_list' %}" class="btn btn-secondary w-100">
+                    <i class="bi bi-arrow-left"></i> Назад к списку групп
+                </a>
             </div>
         </div>
     </div>

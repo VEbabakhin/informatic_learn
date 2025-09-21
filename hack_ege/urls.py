@@ -30,8 +30,8 @@ urlpatterns = [
     path('', redirect_to_dashboard),
     path('users/', include('users.urls')),
     path('tasks/', include('tasks.urls')),
+    path('courses/', include('courses.urls')),
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
-    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
 ]
 
 if settings.DEBUG:

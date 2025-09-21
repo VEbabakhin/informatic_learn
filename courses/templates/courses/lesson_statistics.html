@@ -1,0 +1,375 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Статистика урока "{{ lesson.title }}"{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2><i class="bi bi-bar-chart"></i> Статистика урока</h2>
+                <p class="text-muted mb-0">
+                    Урок: <strong>{{ lesson.get_full_title }}</strong> | Курс: <strong>{{ course.title }}</strong>
+                </p>
+            </div>
+            <a href="{% url 'courses:course_lessons_for_assignment' course.id %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Назад к урокам
+            </a>
+        </div>
+
+        {% if statistics_data %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-people"></i> Результаты выполнения урока
+                        <span class="badge bg-primary ms-2">{{ statistics_data|length }} ученик(ов)</span>
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 200px;">Ученик</th>
+                                    <th style="width: 120px;">Группа</th>
+                                    <th style="width: 150px;">Завершен</th>
+                                    {% for task in tasks %}
+                                        <th class="text-center" style="width: 80px;">
+                                            <small>{{ forloop.counter }}</small>
+                                        </th>
+                                    {% endfor %}
+                                    <th class="text-center" style="width: 100px;">
+                                        <small>Правильных</small>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for student_data in statistics_data %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="avatar-sm bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2">
+                                                    {{ student_data.student.first_name|first|upper }}{{ student_data.student.last_name|first|upper }}
+                                                </div>
+                                                <div>
+                                                    <div class="fw-bold">{{ student_data.student.get_full_name }}</div>
+                                                    <small class="text-muted">{{ student_data.student.username }}</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ student_data.group.name }}</span>
+                                        </td>
+                                        <td>
+                                            <small>{{ student_data.completed_at|date:"d.m.Y H:i" }}</small>
+                                        </td>
+                                        {% for task_result in student_data.task_results %}
+                                            <td class="text-center">
+                                                {% if task_result.has_answer %}
+                                                    {% if task_result.is_correct %}
+                                                        <i class="bi bi-check-circle-fill text-success fs-4 task-detail-btn" 
+                                                           title="Правильный ответ - кликните для деталей"
+                                                           data-bs-toggle="modal" 
+                                                           data-bs-target="#taskDetailModal"
+                                                           data-task-text="{{ task_result.task.text|escapejs }}"
+                                                           data-student-answer="{{ task_result.answer|escapejs }}"
+                                                           data-correct-answer="{{ task_result.task.correct_answer|escapejs }}"
+                                                           data-task-number="{{ forloop.counter }}"
+                                                           data-student-name="{{ student_data.student.get_full_name|escapejs }}"
+                                                           style="cursor: pointer;"></i>
+                                                    {% else %}
+                                                        <i class="bi bi-x-circle-fill text-danger fs-4 task-detail-btn" 
+                                                           title="Неправильный ответ - кликните для деталей"
+                                                           data-bs-toggle="modal" 
+                                                           data-bs-target="#taskDetailModal"
+                                                           data-task-text="{{ task_result.task.text|escapejs }}"
+                                                           data-student-answer="{{ task_result.answer|escapejs }}"
+                                                           data-correct-answer="{{ task_result.task.correct_answer|escapejs }}"
+                                                           data-task-number="{{ forloop.counter }}"
+                                                           data-student-name="{{ student_data.student.get_full_name|escapejs }}"
+                                                           style="cursor: pointer;"></i>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <i class="bi bi-question-circle text-muted fs-4 task-detail-btn" 
+                                                       title="Не дал ответа - кликните для деталей"
+                                                       data-bs-toggle="modal" 
+                                                       data-bs-target="#taskDetailModal"
+                                                       data-task-text="{{ task_result.task.text|escapejs }}"
+                                                       data-student-answer=""
+                                                       data-correct-answer="{{ task_result.task.correct_answer|escapejs }}"
+                                                       data-task-number="{{ forloop.counter }}"
+                                                       data-student-name="{{ student_data.student.get_full_name|escapejs }}"
+                                                       style="cursor: pointer;"></i>
+                                                {% endif %}
+                                            </td>
+                                        {% endfor %}
+                                        <td class="text-center">
+                                            <span class="badge bg-{% if student_data.correct_count == tasks|length %}success{% elif student_data.correct_count > 0 %}warning{% else %}danger{% endif %}">
+                                                {{ student_data.correct_count }}/{{ tasks|length }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        {% else %}
+            <div class="alert alert-info text-center py-5">
+                <i class="bi bi-info-circle display-4 mb-3"></i>
+                <h4>Нет выполненных уроков</h4>
+                <p>Пока никто из учеников не завершил этот урок.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Модальное окно для деталей задания -->
+<div class="modal fade" id="taskDetailModal" tabindex="-1" aria-labelledby="taskDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="max-height: 85vh;">
+            <div class="modal-header">
+                <h5 class="modal-title" id="taskDetailModalLabel">
+                    <i class="bi bi-journal-text"></i> Детали задания
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body" style="overflow-y: auto; max-height: 70vh;">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="text-muted mb-2" style="font-size: 0.9rem;">
+                            <i class="bi bi-person"></i> <span id="modal-student-name"></span> | 
+                            <i class="bi bi-hash"></i> Задание <span id="modal-task-number"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Текст задания -->
+                <div class="mb-3">
+                    <h6 class="fw-bold mb-2" style="font-size: 0.95rem;">
+                        <i class="bi bi-question-circle"></i> Текст задания:
+                    </h6>
+                    <div class="p-2 rounded border" style="background-color: #f8f9fa;">
+                        <div id="modal-task-text" style="font-size: 0.9rem; line-height: 1.4;"></div>
+                    </div>
+                </div>
+
+                <!-- Ответы в одну строку -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6 class="fw-bold mb-1" style="font-size: 0.9rem;">
+                            <i class="bi bi-person-check"></i> Ответ ученика:
+                        </h6>
+                        <div class="p-2 rounded border" id="modal-student-answer-container" style="min-height: 50px;">
+                            <div id="modal-student-answer" style="font-size: 0.9rem;"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="fw-bold mb-1" style="font-size: 0.9rem;">
+                            <i class="bi bi-check-circle"></i> Правильный ответ:
+                        </h6>
+                        <div class="p-2 rounded border" style="background-color: #e7f3ff; min-height: 50px;">
+                            <div id="modal-correct-answer" style="font-size: 0.9rem;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Результат -->
+                <div class="mb-2">
+                    <div class="d-flex align-items-center">
+                        <h6 class="fw-bold mb-0 me-2" style="font-size: 0.9rem;">
+                            <i class="bi bi-clipboard-check"></i> Результат:
+                        </h6>
+                        <div id="modal-result-badge"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Закрыть
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.table th {
+    position: sticky;
+    top: 0;
+    background-color: #f8f9fa;
+    z-index: 10;
+}
+
+.table-responsive {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+/* Стили для значков результатов */
+.bi-check-circle-fill {
+    color: #28a745 !important;
+}
+
+.bi-x-circle-fill {
+    color: #dc3545 !important;
+}
+
+.bi-question-circle {
+    color: #6c757d !important;
+}
+
+/* Увеличиваем размер значков */
+.fs-4 {
+    font-size: 1.5rem !important;
+}
+
+/* Дополнительные стили для лучшей видимости */
+.table td {
+    vertical-align: middle;
+}
+
+.table td i {
+    display: block;
+    margin: 0 auto;
+}
+
+/* Стили для кликабельных значков */
+.task-detail-btn:hover {
+    transform: scale(1.1);
+    transition: transform 0.2s ease;
+}
+
+/* Стили для модального окна */
+.modal-content {
+    border-radius: 10px;
+}
+
+.modal-body {
+    padding: 0.75rem;
+}
+
+/* Стили для прокрутки */
+.modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Стили для блоков с прокруткой */
+.modal-body div[style*="overflow-y: auto"]::-webkit-scrollbar {
+    width: 4px;
+}
+
+.modal-body div[style*="overflow-y: auto"]::-webkit-scrollbar-track {
+    background: #f8f9fa;
+    border-radius: 2px;
+}
+
+.modal-body div[style*="overflow-y: auto"]::-webkit-scrollbar-thumb {
+    background: #dee2e6;
+    border-radius: 2px;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Обработчик клика по значкам заданий
+    document.querySelectorAll('.task-detail-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            // Получаем данные из data-атрибутов
+            const taskText = this.getAttribute('data-task-text');
+            const studentAnswer = this.getAttribute('data-student-answer');
+            const correctAnswer = this.getAttribute('data-correct-answer');
+            const taskNumber = this.getAttribute('data-task-number');
+            const studentName = this.getAttribute('data-student-name');
+            
+            // Заполняем модальное окно
+            document.getElementById('modal-student-name').textContent = studentName;
+            document.getElementById('modal-task-number').textContent = taskNumber;
+            
+            // Декодируем HTML-сущности для текста задания
+            const taskTextElement = document.getElementById('modal-task-text');
+            let decodedTaskText = taskText;
+            // Заменяем двойные экранированные Unicode на одинарные
+            decodedTaskText = decodedTaskText.replace(/\\\\u/g, '\\u');
+            // Декодируем Unicode
+            decodedTaskText = decodedTaskText.replace(/\\u([0-9a-fA-F]{4})/g, function(match, code) {
+                return String.fromCharCode(parseInt(code, 16));
+            });
+            // Декодируем HTML-сущности
+            decodedTaskText = decodedTaskText.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+            taskTextElement.innerHTML = decodedTaskText;
+            
+            // Декодируем HTML-сущности для правильного ответа
+            const correctAnswerElement = document.getElementById('modal-correct-answer');
+            let decodedCorrectAnswer = correctAnswer;
+            decodedCorrectAnswer = decodedCorrectAnswer.replace(/\\\\u/g, '\\u');
+            decodedCorrectAnswer = decodedCorrectAnswer.replace(/\\u([0-9a-fA-F]{4})/g, function(match, code) {
+                return String.fromCharCode(parseInt(code, 16));
+            });
+            decodedCorrectAnswer = decodedCorrectAnswer.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+            correctAnswerElement.innerHTML = decodedCorrectAnswer;
+            
+            // Обрабатываем MathJax для формул в тексте задания
+            if (window.MathJax) {
+                MathJax.typesetPromise([document.getElementById('modal-task-text')]);
+            }
+            
+            // Обрабатываем ответ ученика
+            const studentAnswerContainer = document.getElementById('modal-student-answer-container');
+            const studentAnswerDiv = document.getElementById('modal-student-answer');
+            
+            if (studentAnswer && studentAnswer.trim() !== '') {
+                // Декодируем HTML-сущности для ответа ученика
+                let decodedStudentAnswer = studentAnswer;
+                decodedStudentAnswer = decodedStudentAnswer.replace(/\\\\u/g, '\\u');
+                decodedStudentAnswer = decodedStudentAnswer.replace(/\\u([0-9a-fA-F]{4})/g, function(match, code) {
+                    return String.fromCharCode(parseInt(code, 16));
+                });
+                decodedStudentAnswer = decodedStudentAnswer.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+                studentAnswerDiv.innerHTML = decodedStudentAnswer;
+                studentAnswerContainer.style.backgroundColor = '#fff3cd'; // Желтый фон для ответа ученика
+            } else {
+                studentAnswerDiv.innerHTML = '<em class="text-muted">Ученик не дал ответа</em>';
+                studentAnswerContainer.style.backgroundColor = '#f8f9fa'; // Серый фон для отсутствия ответа
+            }
+            
+            // Определяем результат и показываем соответствующий бейдж
+            const resultBadge = document.getElementById('modal-result-badge');
+            if (studentAnswer && studentAnswer.trim() !== '') {
+                const isCorrect = studentAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim();
+                if (isCorrect) {
+                    resultBadge.innerHTML = '<span class="badge bg-success fs-6"><i class="bi bi-check-circle"></i> Правильно</span>';
+                } else {
+                    resultBadge.innerHTML = '<span class="badge bg-danger fs-6"><i class="bi bi-x-circle"></i> Неправильно</span>';
+                }
+            } else {
+                resultBadge.innerHTML = '<span class="badge bg-secondary fs-6"><i class="bi bi-question-circle"></i> Нет ответа</span>';
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

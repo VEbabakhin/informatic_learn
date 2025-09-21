@@ -1,17 +1,92 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, authenticate
+from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
+from django.shortcuts import redirect
 from .models import User, Group, UserGroup
-from .forms import AddTeacherForm, AddStudentForm, CreateGroupForm, AddStudentsToGroupForm
+from .forms import AddTeacherForm, AddStudentForm, CreateGroupForm, AddStudentsToGroupForm, EditGroupForm, RemoveStudentsFromGroupForm, SimpleGroupEditForm
 
 @login_required
 def dashboard(request):
     """Главная страница платформы"""
+    # Для учителей и администраторов перенаправляем на страницу "Занятия"
+    if request.user.role in ['admin', 'teacher']:
+        return redirect('courses:lesson_assignments')
+    
+    # Для учеников показываем назначенные уроки
     context = {
         'user': request.user,
     }
+    
+    if request.user.role == 'student':
+        from courses.models import LessonAssignment, LessonExecution
+        from django.utils import timezone
+        
+        # Получаем группы ученика
+        user_groups = Group.objects.filter(students=request.user)
+        
+        # Отладочная информация о группах ученика
+        print(f"DEBUG: Пользователь {request.user.username} состоит в группах: {[g.name for g in user_groups]}")
+        
+        # Получаем активные назначения уроков для групп ученика
+        assigned_lessons = LessonAssignment.objects.filter(
+            group__in=user_groups,
+            is_active=True
+        ).select_related('lesson', 'lesson__course', 'assigned_by').order_by('-assigned_at')
+        
+        # Отладочная информация
+        print(f"DEBUG: Найдено {assigned_lessons.count()} активных назначений для пользователя {request.user.username}")
+        for assignment in assigned_lessons:
+            print(f"DEBUG: Назначение ID {assignment.id}, урок '{assignment.lesson.title}', тип '{assignment.lesson.lesson_type}', группа '{assignment.group.name}', активен: {assignment.is_active}")
+        
+        # Создаем LessonExecution для всех типов уроков
+        for assignment in assigned_lessons:
+            # Проверяем, есть ли уже выполнение для этого конкретного назначения
+            existing_execution = LessonExecution.objects.filter(
+                student=request.user,
+                assignment=assignment
+            ).first()
+            
+            print(f"DEBUG: Проверяем выполнение для назначения ID {assignment.id}, урок '{assignment.lesson.title}', тип '{assignment.lesson.lesson_type}', существующее: {existing_execution is not None}")
+            
+            # Создаем выполнение только если его еще нет для этого назначения
+            if not existing_execution:
+                execution = LessonExecution.objects.create(
+                    lesson=assignment.lesson,
+                    student=request.user,
+                    assignment=assignment,
+                    status='assigned'
+                )
+                print(f"DEBUG: Создано новое выполнение ID {execution.id} для урока ID {assignment.id} (тип: {assignment.lesson.lesson_type})")
+            else:
+                print(f"DEBUG: Пропускаем создание выполнения для назначения ID {assignment.id} - уже существует")
+        
+        # Получаем выполнения уроков учеником (после создания новых)
+        lesson_executions = LessonExecution.objects.filter(
+            student=request.user,
+            is_active=True
+        ).select_related('lesson', 'lesson__course', 'assignment').order_by('-started_at')
+        
+        print(f"DEBUG: Найдено {lesson_executions.count()} активных выполнений для пользователя {request.user.username}")
+        for execution in lesson_executions:
+            print(f"DEBUG: Выполнение ID {execution.id}, урок '{execution.lesson.title}', статус '{execution.status}', активен: {execution.is_active}")
+        
+        # Разделяем выполнения по статусам
+        assigned_executions = lesson_executions.filter(status='assigned')
+        in_progress_executions = lesson_executions.filter(status='in_progress')
+        # Завершенные уроки сортируем по дате завершения (последний завершенный первым)
+        completed_executions = lesson_executions.filter(status='completed').order_by('-completed_at')
+        
+        # Объединяем assigned и in_progress для отображения в "Заданных уроках"
+        active_executions = lesson_executions.filter(status__in=['assigned', 'in_progress'])
+        
+        context.update({
+            'assigned_executions': active_executions,  # Показываем все активные уроки
+            'in_progress_executions': in_progress_executions,
+            'completed_executions': completed_executions,
+        })
+    
     return render(request, 'users/dashboard.html', context)
 
 @login_required
@@ -164,7 +239,7 @@ def group_list(request):
         messages.error(request, 'У вас нет прав для просмотра групп')
         return redirect('user_list')
     
-    groups = Group.objects.filter(created_by=request.user)
+    groups = Group.objects.filter(created_by=request.user).prefetch_related('students')
     return render(request, 'users/group_list.html', {'groups': groups})
 
 @login_required
@@ -193,15 +268,15 @@ def add_students_to_group(request, group_id):
     group = get_object_or_404(Group, id=group_id, created_by=request.user)
     
     if request.method == 'POST':
-        form = AddStudentsToGroupForm(request.POST, user=request.user)
+        form = AddStudentsToGroupForm(request.POST, user=request.user, group=group)
         if form.is_valid():
             students = form.cleaned_data['students']
             for student in students:
                 UserGroup.objects.get_or_create(user=student, group=group)
             messages.success(request, f'В группу "{group.name}" добавлено {len(students)} учеников')
-            return redirect('group_list')
+            return redirect('group_detail', group_id=group.id)
     else:
-        form = AddStudentsToGroupForm(user=request.user)
+        form = AddStudentsToGroupForm(user=request.user, group=group)
     
     return render(request, 'users/add_students_to_group.html', {
         'form': form,
@@ -323,3 +398,222 @@ def reset_password(request, user_id):
         return redirect('user_list')
     
     return render(request, 'users/reset_password.html', {'user_to_reset': user_to_reset})
+
+
+@login_required
+def set_selected_group(request):
+    """Установка выбранной группы в сессии"""
+    if request.user.role not in ['admin', 'teacher']:
+        return JsonResponse({'success': False, 'message': 'Нет прав доступа'})
+    
+    if request.method == 'POST':
+        import json
+        data = json.loads(request.body)
+        group_id = data.get('group_id')
+        
+        if group_id:
+            try:
+                group = Group.objects.get(id=group_id)
+                # Проверяем, что группа принадлежит пользователю
+                if group.created_by == request.user:
+                    request.session['selected_group_id'] = group_id
+                    return JsonResponse({
+                        'success': True,
+                        'group_name': group.name
+                    })
+                else:
+                    return JsonResponse({'success': False, 'message': 'Нет доступа к этой группе'})
+            except Group.DoesNotExist:
+                return JsonResponse({'success': False, 'message': 'Группа не найдена'})
+        else:
+            return JsonResponse({'success': False, 'message': 'ID группы не указан'})
+    
+    return JsonResponse({'success': False, 'message': 'Неверный метод запроса'})
+
+
+@login_required
+def clear_selected_group(request):
+    """Очистка выбранной группы из сессии"""
+    if request.user.role not in ['admin', 'teacher']:
+        return JsonResponse({'success': False, 'message': 'Нет прав доступа'})
+    
+    if request.method == 'POST':
+        if 'selected_group_id' in request.session:
+            del request.session['selected_group_id']
+        return JsonResponse({'success': True})
+    
+    return JsonResponse({'success': False, 'message': 'Неверный метод запроса'})
+
+
+def get_user_groups(user):
+    """Получение групп пользователя"""
+    if user.role == 'admin':
+        # Администраторы видят только группы, которые они создали
+        return Group.objects.prefetch_related('students').filter(created_by=user)
+    elif user.role == 'teacher':
+        # Учителя видят только группы, которые они создали
+        return Group.objects.prefetch_related('students').filter(created_by=user)
+    return Group.objects.none()
+
+
+def get_selected_group(user, session):
+    """Получение выбранной группы из сессии"""
+    selected_group_id = session.get('selected_group_id')
+    if selected_group_id:
+        try:
+            group = Group.objects.prefetch_related('students').get(id=selected_group_id)
+            # Проверяем, что группа принадлежит пользователю
+            if group.created_by == user:
+                return group
+        except Group.DoesNotExist:
+            pass
+    return None
+
+@login_required
+def edit_group(request, group_id):
+    """Редактирование группы с интуитивным интерфейсом"""
+    if request.user.role not in ['admin', 'teacher']:
+        messages.error(request, 'У вас нет прав для редактирования групп')
+        return redirect('group_list')
+    
+    group = get_object_or_404(Group, id=group_id, created_by=request.user)
+    
+    if request.method == 'POST':
+        form = SimpleGroupEditForm(request.POST)
+        if form.is_valid():
+            # Обновляем название группы
+            group.name = form.cleaned_data['name']
+            group.save()
+            messages.success(request, 'Название группы обновлено')
+            return redirect('edit_group', group_id=group.id)
+    else:
+        form = SimpleGroupEditForm(initial={'name': group.name})
+    
+    # Получаем учеников в группе
+    students_in_group = group.students.all().order_by('last_name', 'first_name')
+    
+    # Получаем всех доступных учеников (не в группе)
+    available_students = User.objects.filter(
+        role='student',
+        created_by=request.user
+    ).exclude(id__in=group.students.values_list('id', flat=True)).order_by('last_name', 'first_name')
+    
+    return render(request, 'users/edit_group.html', {
+        'form': form,
+        'group': group,
+        'students_in_group': students_in_group,
+        'available_students': available_students
+    })
+
+@login_required
+def group_detail(request, group_id):
+    """Детальная информация о группе с возможностью удаления учеников"""
+    if request.user.role not in ['admin', 'teacher']:
+        messages.error(request, 'У вас нет прав для просмотра групп')
+        return redirect('group_list')
+    
+    group = get_object_or_404(Group, id=group_id, created_by=request.user)
+    
+    if request.method == 'POST':
+        form = RemoveStudentsFromGroupForm(request.POST, group=group)
+        if form.is_valid():
+            students = form.cleaned_data['students']
+            for student in students:
+                UserGroup.objects.filter(user=student, group=group).delete()
+            messages.success(request, f'Из группы "{group.name}" удалено {len(students)} учеников')
+            return redirect('group_detail', group_id=group.id)
+    else:
+        form = RemoveStudentsFromGroupForm(group=group)
+    
+    return render(request, 'users/group_detail.html', {
+        'form': form,
+        'group': group
+    })
+
+@login_required
+def delete_group(request, group_id):
+    """Удаление группы"""
+    if request.user.role not in ['admin', 'teacher']:
+        messages.error(request, 'У вас нет прав для удаления групп')
+        return redirect('group_list')
+    
+    group = get_object_or_404(Group, id=group_id, created_by=request.user)
+    
+    if request.method == 'POST':
+        group_name = group.name
+        group.delete()
+        messages.success(request, f'Группа "{group_name}" удалена')
+        return redirect('group_list')
+    
+    return render(request, 'users/delete_group.html', {'group': group})
+
+def logout_view(request):
+    """Выход из системы"""
+    logout(request)
+    messages.success(request, 'Вы успешно вышли из системы')
+    return redirect('login')
+
+@login_required
+def add_student_to_group(request, group_id, student_id):
+    """Добавить ученика в группу через AJAX"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Метод не разрешен'})
+    
+    if request.user.role not in ['admin', 'teacher']:
+        return JsonResponse({'success': False, 'error': 'Нет прав для редактирования групп'})
+    
+    try:
+        group = Group.objects.get(id=group_id, created_by=request.user)
+        student = User.objects.get(id=student_id, role='student', created_by=request.user)
+        
+        # Проверяем, что ученик не в группе
+        if not UserGroup.objects.filter(group=group, user=student).exists():
+            UserGroup.objects.create(group=group, user=student)
+            return JsonResponse({
+                'success': True, 
+                'message': f'{student.get_full_name()} добавлен в группу',
+                'student_name': student.get_full_name(),
+                'student_id': student.id
+            })
+        else:
+            return JsonResponse({'success': False, 'error': 'Ученик уже в группе'})
+            
+    except Group.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Группа не найдена'})
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Ученик не найден'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+def remove_student_from_group(request, group_id, student_id):
+    """Удалить ученика из группы через AJAX"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Метод не разрешен'})
+    
+    if request.user.role not in ['admin', 'teacher']:
+        return JsonResponse({'success': False, 'error': 'Нет прав для редактирования групп'})
+    
+    try:
+        group = Group.objects.get(id=group_id, created_by=request.user)
+        student = User.objects.get(id=student_id, role='student', created_by=request.user)
+        
+        # Удаляем связь
+        user_group = UserGroup.objects.filter(group=group, user=student).first()
+        if user_group:
+            user_group.delete()
+            return JsonResponse({
+                'success': True, 
+                'message': f'{student.get_full_name()} удален из группы',
+                'student_name': student.get_full_name(),
+                'student_id': student.id
+            })
+        else:
+            return JsonResponse({'success': False, 'error': 'Ученик не в группе'})
+            
+    except Group.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Группа не найдена'})
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Ученик не найден'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

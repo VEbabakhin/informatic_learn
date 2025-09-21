@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'users',
     'tasks',
+    'courses',
 ]
 
 MIDDLEWARE = [
@@ -66,6 +67,7 @@ TEMPLATES = [
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.request',
+                'users.context_processors.user_groups_context',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
@@ -83,6 +85,9 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        'OPTIONS': {
+            'init_command': "PRAGMA case_sensitive_like=OFF;",
+        },
     }
 }
 
@@ -201,6 +206,14 @@ LOGOUT_REDIRECT_URL = '/login/'
 ADMIN_SITE_HEADER = 'Система управления пользователями'
 ADMIN_SITE_TITLE = 'Администрирование'
 ADMIN_INDEX_TITLE = 'Панель управления'
+
+# Disable caching in development
+if DEBUG:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+        }
+    }
 
 # Logging configuration
 LOGGING = {

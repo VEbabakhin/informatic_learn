@@ -1,0 +1,55 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Удаление заданий сессии{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">Удаление заданий сессии</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <h6>Внимание!</h6>
+                    <p>Вы собираетесь удалить <strong>все {{ session.tasks_count }} заданий</strong> и <strong>саму сессию импорта</strong>:</p>
+                </div>
+                
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title">{{ session.name }}</h6>
+                        <p class="card-text">
+                            <strong>Тип:</strong> {{ session.get_task_type_display }}<br>
+                            {% if session.subtype %}
+                                <strong>Подтип:</strong> {{ session.subtype }}<br>
+                            {% endif %}
+                            <strong>Количество заданий:</strong> {{ session.tasks_count }}<br>
+                            <strong>Создано:</strong> {{ session.created_at|date:"d.m.Y H:i" }}<br>
+                            <strong>Автор:</strong> {{ session.created_by.get_full_name|default:session.created_by.username }}
+                        </p>
+                        {% if session.description %}
+                            <p class="card-text"><small class="text-muted">{{ session.description }}</small></p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="alert alert-danger">
+                    <strong>Это действие нельзя отменить!</strong><br>
+                    Все задания из этой сессии и сама сессия будут безвозвратно удалены.
+                </div>
+            </div>
+            <div class="card-footer">
+                <form method="post" class="d-inline">
+                    {% csrf_token %}
+                    <div class="btn-group w-100" role="group">
+                        <a href="{% url 'bulk_import' %}" class="btn btn-secondary">Отмена</a>
+                        <button type="submit" class="btn btn-danger">
+                            Да, удалить сессию и все {{ session.tasks_count }} заданий
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

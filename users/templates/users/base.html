@@ -5,13 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Платформа изучения информатики и подготовки к ЕГЭ{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script>
         window.MathJax = {
             tex: {
                 inlineMath: [['\\(', '\\)']],
-                displayMath: [['\\[', '\\]']]
+                displayMath: [['\\[', '\\]']],
+                processEscapes: true,
+                processEnvironments: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'],
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
             },
             startup: {
                 ready: function () {
@@ -27,6 +35,60 @@
         };
     </script>
     <style>
+        /* Мягкая цветовая схема */
+        :root {
+            --primary-soft: #6c7ae0;
+            --success-soft: #28a745;
+            --info-soft: #17a2b8;
+            --warning-soft: #ffc107;
+            --danger-soft: #dc3545;
+            --secondary-soft: #6c757d;
+            --light-soft: #f8f9fa;
+            --dark-soft: #343a40;
+        }
+        
+        /* Обновленные цвета бейджей */
+        .badge.bg-primary { background-color: var(--primary-soft) !important; }
+        .badge.bg-success { background-color: var(--success-soft) !important; }
+        .badge.bg-info { background-color: var(--info-soft) !important; }
+        .badge.bg-warning { background-color: var(--warning-soft) !important; color: #000 !important; }
+        .badge.bg-danger { background-color: var(--danger-soft) !important; }
+        .badge.bg-secondary { background-color: var(--secondary-soft) !important; }
+        .badge.bg-dark { background-color: var(--dark-soft) !important; }
+        
+        /* Обновленные цвета кнопок */
+        .btn-primary { background-color: var(--primary-soft); border-color: var(--primary-soft); }
+        .btn-primary:hover { background-color: #5a6fd8; border-color: #5a6fd8; }
+        .btn-success { background-color: var(--success-soft); border-color: var(--success-soft); }
+        .btn-success:hover { background-color: #218838; border-color: #218838; }
+        .btn-info { background-color: var(--info-soft); border-color: var(--info-soft); }
+        .btn-info:hover { background-color: #138496; border-color: #138496; }
+        .btn-warning { background-color: var(--warning-soft); border-color: var(--warning-soft); color: #000; }
+        .btn-warning:hover { background-color: #e0a800; border-color: #e0a800; color: #000; }
+        .btn-danger { background-color: var(--danger-soft); border-color: var(--danger-soft); }
+        .btn-danger:hover { background-color: #c82333; border-color: #c82333; }
+        
+        /* Мягкие цвета для карточек */
+        .card.border-primary { border-color: var(--primary-soft) !important; }
+        .card-header.bg-primary { background-color: var(--primary-soft) !important; }
+        .alert-info { background-color: #e7f3ff; border-color: var(--info-soft); color: #0c5460; }
+        .alert-success { background-color: #d4edda; border-color: var(--success-soft); color: #155724; }
+        .alert-warning { background-color: #fff3cd; border-color: var(--warning-soft); color: #856404; }
+        .alert-danger { background-color: #f8d7da; border-color: var(--danger-soft); color: #721c24; }
+        
+        /* Мягкие цвета для навбара */
+        .navbar-dark.bg-dark { background-color: #495057 !important; }
+        .navbar-dark .navbar-nav .nav-link { color: rgba(255,255,255,0.9); }
+        .navbar-dark .navbar-nav .nav-link:hover { color: rgba(255,255,255,1); }
+        
+        /* Мягкие цвета для дропдаунов */
+        .dropdown-menu { border: 1px solid rgba(0,0,0,0.1); box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.1); }
+        .dropdown-item:hover { background-color: #f8f9fa; }
+        
+        /* Мягкие цвета для форм */
+        .form-control:focus { border-color: var(--primary-soft); box-shadow: 0 0 0 0.2rem rgba(108, 122, 224, 0.25); }
+        .form-select:focus { border-color: var(--primary-soft); box-shadow: 0 0 0 0.2rem rgba(108, 122, 224, 0.25); }
+        
         .task-html-content table {
             border-collapse: collapse;
             width: 100%;
@@ -59,23 +121,35 @@
                     <ul class="navbar-nav me-auto">
                         {% if user.role == 'admin' or user.role == 'teacher' %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{% url 'task_list' %}">Банк заданий</a>
+                                <a class="nav-link" href="{% url 'task_list' %}">Задания</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'courses:course_list' %}">Курсы</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'courses:lesson_assignments' %}">Занятия</a>
                             </li>
                         {% endif %}
                         {% if user.role == 'admin' %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'user_list' %}">Пользователи</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'group_list' %}">Группы</a>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
+                                    Управление
+                                </a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="{% url 'user_list' %}">Пользователи</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'group_list' %}">Группы</a></li>
+                                </ul>
                             </li>
                         {% endif %}
-                        {% if user.role == 'admin' or user.role == 'teacher' %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'user_list' %}?my_students=1">Мои ученики</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'group_list' %}">Мои группы</a>
+                        {% if user.role == 'teacher' %}
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="teacherDropdown" role="button" data-bs-toggle="dropdown">
+                                    Мои данные
+                                </a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="{% url 'user_list' %}?my_students=1">Мои ученики</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'group_list' %}">Мои группы</a></li>
+                                </ul>
                             </li>
                         {% endif %}
                     </ul>
@@ -101,7 +175,46 @@
         </div>
     </nav>
 
+    <!-- Переключатель групп для администраторов и учителей -->
+    {% if user.is_authenticated and user.role in 'admin,teacher' %}
+        <div class="bg-light border-bottom py-2">
+            <div class="container">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-people me-2 text-primary"></i>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-end">
+                            <div class="dropdown">
+                                <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" id="groupDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-people-fill me-1"></i>
+                                    <span id="group-display">
+                                        {% if selected_group %}
+                                            {{ selected_group.name }}
+                                        {% else %}
+                                            Выберите группу
+                                        {% endif %}
+                                    </span>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="groupDropdown">
+                                    {% for group in user_groups %}
+                                        <li><a class="dropdown-item" href="#" data-group-id="{{ group.id }}" onclick="selectGroup('{{ group.id }}')">
+                                            <i class="bi bi-people me-2"></i>{{ group.name }}
+                                        </a></li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
     <div class="container mt-4">
+        {% csrf_token %}
         {% if messages %}
             {% for message in messages %}
                 <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
@@ -116,5 +229,113 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- JavaScript для переключателя групп -->
+    <script>
+        function selectGroup(groupId) {
+            // Сохраняем выбранную группу в сессии
+            fetch('{% url "set_selected_group" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                },
+                body: JSON.stringify({group_id: groupId})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Обновляем отображение группы
+                    const groupDisplay = document.getElementById('group-display');
+                    if (groupDisplay) {
+                        groupDisplay.textContent = data.group_name;
+                    }
+                    // Обновляем страницу для отображения данных выбранной группы
+                    window.location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка при выборе группы:', error);
+                showNotification('Ошибка при выборе группы', 'error');
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Восстанавливаем выбранную группу при загрузке страницы
+            const selectedGroupId = '{{ selected_group_id|default:"" }}';
+            const selectedGroupName = '{{ selected_group.name|default:"" }}';
+            
+            if (selectedGroupId && selectedGroupName) {
+                const groupDisplay = document.getElementById('group-display');
+                if (groupDisplay) {
+                    groupDisplay.textContent = selectedGroupName;
+                }
+            }
+        });
+        
+        function showNotification(message, type) {
+            // Создаем уведомление
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            // Вставляем в начало контейнера
+            const container = document.querySelector('.container.mt-4');
+            if (container) {
+                container.insertBefore(alertDiv, container.firstChild);
+                
+                // Автоматически скрываем через 3 секунды
+                setTimeout(() => {
+                    if (alertDiv.parentNode) {
+                        alertDiv.remove();
+                    }
+                }, 3000);
+            }
+        }
+    </script>
+    
+    <style>
+        /* Стили для выравнивания ответов в заданиях 19-21 */
+        .task-answer {
+            margin-left: 0 !important;
+            text-align: left !important;
+            line-height: 1.6;
+        }
+        
+        .task-answer br {
+            display: block;
+            margin: 0.2em 0;
+        }
+        
+        /* Оптимизация меню для мобильных устройств */
+        @media (max-width: 991.98px) {
+            .navbar-nav .nav-item {
+                margin-bottom: 0.25rem;
+            }
+            .navbar-nav .dropdown-menu {
+                position: static !important;
+                float: none;
+                width: auto;
+                margin-top: 0;
+                background-color: transparent;
+                border: 0;
+                box-shadow: none;
+            }
+            .navbar-nav .dropdown-item {
+                padding-left: 2rem;
+                color: rgba(255,255,255,.75);
+            }
+        }
+        
+        /* Улучшение отображения на больших экранах */
+        @media (min-width: 992px) {
+            .navbar-nav .nav-item {
+                margin-right: 0.5rem;
+            }
+        }
+    </style>
 </body>
 </html>

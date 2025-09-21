@@ -1,0 +1,56 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Удаление группы{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="text-danger"><i class="bi bi-exclamation-triangle"></i> Удаление группы</h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-danger">
+                    <h5>Внимание!</h5>
+                    <p>Вы собираетесь удалить группу <strong>"{{ group.name }}"</strong>.</p>
+                    <p>Это действие:</p>
+                    <ul>
+                        <li>Удалит группу навсегда</li>
+                        <li>Удалит всех учеников из группы</li>
+                        <li>Не может быть отменено</li>
+                    </ul>
+                </div>
+                
+                <div class="mb-3">
+                    <h6>Ученики в группе ({{ group.students.count }}):</h6>
+                    {% if group.students.all %}
+                        <div class="list-group">
+                            {% for student in group.students.all %}
+                                <div class="list-group-item">
+                                    <i class="bi bi-person text-muted me-2"></i>
+                                    {{ student.get_full_name }}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">В группе нет учеников</p>
+                    {% endif %}
+                </div>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash"></i> Да, удалить группу
+                        </button>
+                        <a href="{% url 'edit_group' group.id %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Отмена
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

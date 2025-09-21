@@ -30,9 +30,49 @@ class AddStudentsToGroupForm(forms.Form):
     
     def __init__(self, *args, **kwargs):
         user = kwargs.pop('user', None)
+        group = kwargs.pop('group', None)
         super().__init__(*args, **kwargs)
         if user:
-            self.fields['students'].queryset = User.objects.filter(
-                role='student',
-                created_by=user
-            )
+            # Исключаем уже добавленных в группу учеников
+            if group:
+                existing_students = group.students.all()
+                self.fields['students'].queryset = User.objects.filter(
+                    role='student',
+                    created_by=user
+                ).exclude(id__in=existing_students)
+            else:
+                self.fields['students'].queryset = User.objects.filter(
+                    role='student',
+                    created_by=user
+                )
+
+class EditGroupForm(forms.ModelForm):
+    class Meta:
+        model = Group
+        fields = ['name']
+        labels = {
+            'name': 'Название группы'
+        }
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'})
+        }
+
+class RemoveStudentsFromGroupForm(forms.Form):
+    students = forms.ModelMultipleChoiceField(
+        queryset=User.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        label='Выберите учеников для удаления из группы'
+    )
+    
+    def __init__(self, *args, **kwargs):
+        group = kwargs.pop('group', None)
+        super().__init__(*args, **kwargs)
+        if group:
+            self.fields['students'].queryset = group.students.all()
+
+class SimpleGroupEditForm(forms.Form):
+    name = forms.CharField(
+        max_length=100,
+        label='Название группы',
+        widget=forms.TextInput(attrs={'class': 'form-control form-control-lg'})
+    )

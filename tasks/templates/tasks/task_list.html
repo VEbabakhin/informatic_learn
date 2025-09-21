@@ -2,10 +2,20 @@
 
 {% block title %}Банк заданий{% endblock %}
 
+{% block extra_head %}
 <!-- Принудительное обновление кэша -->
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
+
+<style>
+/* Стили для поля ID задания */
+#id_task_id {
+    width: 100% !important;
+    min-width: 120px;
+}
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="row">
@@ -13,21 +23,10 @@
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2>Банк заданий</h2>
             <div class="d-flex align-items-center gap-3">
-                <!-- Селектор количества заданий на странице -->
-                <div class="d-flex align-items-center">
-                    <label for="per_page" class="form-label me-2 mb-0 small">На странице:</label>
-                    <select id="per_page" class="form-select form-select-sm" style="width: auto;" onchange="changePerPage()">
-                        <option value="5" {% if request.GET.per_page == '5' %}selected{% endif %}>5</option>
-                        <option value="10" {% if request.GET.per_page == '10' or not request.GET.per_page %}selected{% endif %}>10</option>
-                        <option value="20" {% if request.GET.per_page == '20' %}selected{% endif %}>20</option>
-                        <option value="50" {% if request.GET.per_page == '50' %}selected{% endif %}>50</option>
-                    </select>
-                </div>
-                
                 {% if current_user.role == 'admin' or current_user.role == 'teacher' %}
-                    <div class="btn-group" role="group">
+                    <div class="d-flex gap-2">
                         <a href="{% url 'add_task' %}" class="btn btn-primary">Добавить задание</a>
-                        <a href="{% url 'bulk_import' %}" class="btn btn-success">Массовый импорт</a>
+                        <a href="{% url 'bulk_import' %}" class="btn btn-success">Импорт из JSON</a>
                     </div>
                 {% endif %}
             </div>
@@ -41,6 +40,9 @@
             <div class="card-body">
                 <form method="get" class="row g-3">
                     <div class="col-md-2">
+                        {{ filter_form.task_id }}
+                    </div>
+                    <div class="col-md-2">
                         {{ filter_form.task_type }}
                     </div>
                     <div class="col-md-2">
@@ -49,7 +51,7 @@
                     <div class="col-md-2">
                         {{ filter_form.difficulty }}
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-2">
                         {{ filter_form.search }}
                     </div>
                     <div class="col-md-2 d-flex align-items-end">
@@ -73,7 +75,7 @@
                                     Действия
                                 </button>
                                 <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" href="{% url 'task_detail' task.id %}">Просмотр</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'task_detail' task.id %}?return_url={% url 'task_list' %}">Просмотр</a></li>
                                     {% if current_user.role == 'admin' or task.created_by == current_user %}
                                         <li><a class="dropdown-item" href="{% url 'edit_task' task.id %}">Редактировать</a></li>
                                         <li><a class="dropdown-item text-danger" href="{% url 'delete_task' task.id %}">Удалить</a></li>
@@ -91,7 +93,6 @@
                         </div>
                         
                             <div class="mb-3">
-                                <strong>Текст задания:</strong>
                                 <div class="mt-2">
                                     {% if task.is_html %}
                                         <div class="task-html-content">{{ task.text|safe }}</div>
@@ -112,7 +113,6 @@
                         
                         {% if task.file %}
                             <div class="mb-3">
-                                <strong>Файл для решения:</strong>
                                 <div class="mt-2">
                                     <a href="{{ task.file.url }}" class="btn btn-sm btn-outline-primary" download>
                                         <i class="bi bi-download"></i> Скачать файл
@@ -122,7 +122,8 @@
                         {% endif %}
                         
                         <div class="alert alert-info mb-0">
-                            <strong>Правильный ответ:</strong> {{ task.correct_answer }}
+                            <strong>Правильный ответ:</strong><br>
+                            <div class="task-answer">{{ task.correct_answer|safe }}</div>
                         </div>
                     </div>
                 </div>
@@ -222,18 +223,6 @@ function updateSubtypes() {
     }
 }
 
-// Функция изменения количества заданий на странице
-function changePerPage() {
-    const perPageSelect = document.getElementById('per_page');
-    const perPage = perPageSelect.value;
-    
-    // Обновляем фильтры
-    currentFilters.per_page = perPage;
-    
-    // Сбрасываем состояние бесконечной прокрутки
-    resetInfiniteScroll();
-    loadTasks();
-}
 
 // Функция загрузки заданий через AJAX
 function loadTasks(append = false) {
@@ -282,6 +271,18 @@ function loadTasks(append = false) {
                 // Заменяем весь контент
                 tasksContainer.innerHTML = newTasksContainer.innerHTML;
             }
+            
+            // Удаляем дубликаты заданий по ID
+            removeDuplicateTasks();
+            
+            // Дополнительная обработка MathJax для новых элементов
+            setTimeout(function() {
+                if (window.MathJax && window.MathJax.typesetPromise) {
+                    window.MathJax.typesetPromise(tasksContainer).then(function() {
+                        console.log('MathJax дополнительная обработка завершена');
+                    });
+                }
+            }, 100);
         }
         
         // Проверяем, есть ли еще страницы
@@ -321,6 +322,35 @@ function loadTasks(append = false) {
     });
 }
 
+// Функция удаления дубликатов заданий
+function removeDuplicateTasks() {
+    const tasksContainer = document.getElementById('tasks-container');
+    const taskCards = tasksContainer.querySelectorAll('.card.mb-3');
+    const seenIds = new Set();
+    const duplicates = [];
+    
+    taskCards.forEach(function(card) {
+        const badge = card.querySelector('.badge.bg-dark');
+        if (badge) {
+            const taskId = badge.textContent.trim();
+            if (seenIds.has(taskId)) {
+                duplicates.push(card);
+            } else {
+                seenIds.add(taskId);
+            }
+        }
+    });
+    
+    // Удаляем дубликаты
+    duplicates.forEach(function(duplicate) {
+        duplicate.remove();
+    });
+    
+    if (duplicates.length > 0) {
+        console.log(`Удалено ${duplicates.length} дубликатов заданий`);
+    }
+}
+
 // Функция обработки MathJax
 function processMathJax() {
     if (window.MathJax && window.MathJax.typesetPromise) {
@@ -350,11 +380,24 @@ function processMathJax() {
             div.innerHTML = content;
         });
         
-        window.MathJax.typesetPromise().then(function() {
-            console.log('MathJax обработка завершена');
-        }).catch(function(err) {
-            console.log('MathJax ошибка:', err);
-        });
+        // Принудительно обрабатываем все новые элементы на странице
+        const tasksContainer = document.querySelectorAll('#tasks-container');
+        if (tasksContainer.length > 0) {
+            window.MathJax.typesetPromise(tasksContainer).then(function() {
+                console.log('MathJax обработка новых элементов завершена');
+                
+                // Дополнительная проверка через небольшую задержку
+                setTimeout(function() {
+                    if (window.MathJax && window.MathJax.typesetPromise) {
+                        window.MathJax.typesetPromise(tasksContainer).then(function() {
+                            console.log('MathJax повторная обработка завершена');
+                        });
+                    }
+                }, 100);
+            }).catch(function(err) {
+                console.log('MathJax ошибка:', err);
+            });
+        }
     } else if (window.MathJax && window.MathJax.typeset) {
         // Fallback для старых версий MathJax
         window.MathJax.typeset();
@@ -397,11 +440,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
     currentPage = parseInt(urlParams.get('page')) || 1;
     currentFilters = {
+        task_id: urlParams.get('task_id') || '',
         task_type: urlParams.get('task_type') || '',
         subtype: urlParams.get('subtype') || '',
         difficulty: urlParams.get('difficulty') || '',
-        search: urlParams.get('search') || '',
-        per_page: urlParams.get('per_page') || '10'
+        search: urlParams.get('search') || ''
     };
     
     // Обработчик для формы фильтров
@@ -420,14 +463,14 @@ document.addEventListener('DOMContentLoaded', function() {
             // Сбрасываем состояние бесконечной прокрутки
             resetInfiniteScroll();
             loadTasks();
+            
+            // Дополнительная обработка MathJax после фильтрации
+            setTimeout(function() {
+                processMathJax();
+            }, 200);
         });
     }
     
-    // Обработчик для селектора per_page
-    const perPageSelect = document.getElementById('per_page');
-    if (perPageSelect) {
-        perPageSelect.addEventListener('change', changePerPage);
-    }
     
     // Обработчик для типа задания
     const taskTypeSelect = document.querySelector('select[name="task_type"]');
@@ -439,6 +482,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (subtypeSelect) {
                 subtypeSelect.value = '';
             }
+            
+            // Обработка MathJax после изменения типа
+            setTimeout(function() {
+                processMathJax();
+            }, 100);
         });
         // Обновляем подтипы при загрузке страницы
         updateSubtypes();
@@ -449,6 +497,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Обрабатываем MathJax при загрузке
     processMathJax();
+    
+    // Дополнительная обработка MathJax с задержкой
+    setTimeout(function() {
+        processMathJax();
+    }, 1000);
 });
 </script>
 {% endblock %}

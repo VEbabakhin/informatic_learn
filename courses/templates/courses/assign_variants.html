@@ -1,0 +1,201 @@
+{% extends 'users/base.html' %}
+{% load course_extras %}
+
+{% block title %}Назначение вариантов{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2><i class="bi bi-person-check"></i> Назначение вариантов</h2>
+                    <p class="text-muted mb-0">
+                        Урок: <strong>{{ lesson.get_full_title }}</strong> | 
+                        Группа: <strong>{{ selected_group.name }}</strong>
+                    </p>
+                </div>
+                <a href="{% url 'courses:course_lessons_for_assignment' course.id %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Назад к урокам
+                </a>
+            </div>
+            
+            {% if variants %}
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-person-gear"></i> Назначение вариантов контрольной работы
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" id="assign-form">
+                            {% csrf_token %}
+                            
+                            <!-- Кнопки управления -->
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <button type="button" id="select-all-btn" class="btn btn-outline-primary me-2">
+                                        <i class="bi bi-check-all"></i> Выбрать всех
+                                    </button>
+                                    <button type="button" id="deselect-all-btn" class="btn btn-outline-secondary me-2">
+                                        <i class="bi bi-x-square"></i> Снять выбор
+                                    </button>
+                                </div>
+                                <div class="col-md-6 text-end">
+                                    <button type="button" id="random-assign-btn" class="btn btn-warning me-2">
+                                        <i class="bi bi-shuffle"></i> Случайное назначение
+                                    </button>
+                                    <button type="submit" name="assign_lessons" class="btn btn-success">
+                                        <i class="bi bi-check-circle"></i> Выдать урок
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 50px;">
+                                                <input type="checkbox" id="select-all-checkbox" class="form-check-input">
+                                            </th>
+                                            <th style="width: 200px;">Ученик</th>
+                                            <th style="width: 200px;">Текущий вариант</th>
+                                            <th>Назначить вариант</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for student in selected_group.students.all %}
+                                            <tr>
+                                                <td>
+                                                    <input type="checkbox" name="selected_students" value="{{ student.id }}" 
+                                                           class="form-check-input student-checkbox" 
+                                                           id="student_{{ student.id }}">
+                                                </td>
+                                                <td>
+                                                    <div>
+                                                        <div class="fw-bold">{{ student.get_full_name|default:student.username }}</div>
+                                                        <small class="text-muted">{{ student.username }}</small>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    {% with assignment=assignments|lookup:student.id %}
+                                                        {% if assignment %}
+                                                            <span class="badge bg-success fs-6">
+                                                                <i class="bi bi-check-circle"></i> 
+                                                                Вариант {{ assignment.variant.variant_number }}
+                                                            </span>
+                                                        {% else %}
+                                                            <span class="badge bg-secondary fs-6">
+                                                                <i class="bi bi-dash-circle"></i> Не назначен
+                                                            </span>
+                                                        {% endif %}
+                                                    {% endwith %}
+                                                </td>
+                                                <td>
+                                                    <select name="variant_{{ student.id }}" class="form-select variant-select" style="width: 200px;">
+                                                        <option value="">Выберите вариант</option>
+                                                        {% for variant in variants %}
+                                                            <option value="{{ variant.id }}" 
+                                                                    {% with assignment=assignments|lookup:student.id %}{% if assignment and assignment.variant.id == variant.id %}selected{% endif %}{% endwith %}>
+                                                                Вариант {{ variant.variant_number }}
+                                                            </option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            {% else %}
+                <div class="alert alert-warning text-center py-5">
+                    <i class="bi bi-exclamation-triangle display-4 mb-3"></i>
+                    <h4>Варианты не найдены</h4>
+                    <p>Для этой контрольной работы не созданы варианты.</p>
+                    <a href="{% url 'courses:generate_control_variants' course.id lesson.id %}" class="btn btn-primary">
+                        <i class="bi bi-shuffle"></i> Сгенерировать варианты
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+    const studentCheckboxes = document.querySelectorAll('.student-checkbox');
+    const selectAllBtn = document.getElementById('select-all-btn');
+    const deselectAllBtn = document.getElementById('deselect-all-btn');
+    const randomAssignBtn = document.getElementById('random-assign-btn');
+    const variantSelects = document.querySelectorAll('.variant-select');
+    
+    // Управление выбором всех учеников
+    selectAllCheckbox.addEventListener('change', function() {
+        studentCheckboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+    });
+    
+    // Кнопка "Выбрать всех"
+    selectAllBtn.addEventListener('click', function() {
+        studentCheckboxes.forEach(checkbox => {
+            checkbox.checked = true;
+        });
+        selectAllCheckbox.checked = true;
+    });
+    
+    // Кнопка "Снять выбор"
+    deselectAllBtn.addEventListener('click', function() {
+        studentCheckboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        selectAllCheckbox.checked = false;
+    });
+    
+    // Случайное назначение вариантов
+    randomAssignBtn.addEventListener('click', function() {
+        const checkedStudents = Array.from(studentCheckboxes).filter(cb => cb.checked);
+        const availableVariants = Array.from(variantSelects[0].options).slice(1); // Убираем пустую опцию
+        
+        if (checkedStudents.length === 0) {
+            alert('Выберите учеников для назначения вариантов');
+            return;
+        }
+        
+        if (availableVariants.length === 0) {
+            alert('Нет доступных вариантов');
+            return;
+        }
+        
+        // Перемешиваем варианты каждый раз по-новому
+        const shuffledVariants = [...availableVariants].sort(() => Math.random() - 0.5);
+        
+        // Назначаем варианты выбранным ученикам
+        checkedStudents.forEach((checkbox, index) => {
+            const studentId = checkbox.value;
+            const select = document.querySelector(`select[name="variant_${studentId}"]`);
+            if (select) {
+                const variantIndex = index % shuffledVariants.length;
+                select.value = shuffledVariants[variantIndex].value;
+            }
+        });
+        
+        // Уведомление убрано - варианты назначаются молча
+    });
+    
+    // Обновление главного чекбокса при изменении отдельных
+    studentCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const checkedCount = Array.from(studentCheckboxes).filter(cb => cb.checked).length;
+            selectAllCheckbox.checked = checkedCount === studentCheckboxes.length;
+            selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < studentCheckboxes.length;
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+import uuid
 
 User = get_user_model()
 
@@ -98,13 +99,14 @@ class Task(models.Model):
     image = models.ImageField(upload_to='tasks/images/', blank=True, null=True, verbose_name='Изображение')
     file = models.FileField(upload_to='tasks/files/', blank=True, null=True, verbose_name='Файл для решения')
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_tasks', verbose_name='Создано')
+    import_session = models.ForeignKey('ImportSession', on_delete=models.SET_NULL, null=True, blank=True, related_name='tasks', verbose_name='Сессия импорта')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
 
     class Meta:
         verbose_name = 'Задание'
         verbose_name_plural = 'Задания'
-        ordering = ['-created_at']
+        ordering = ['id']
 
     def __str__(self):
         return f"Задание {self.id} - {self.get_task_type_display()}"
@@ -120,3 +122,36 @@ class Task(models.Model):
             if choice_value == self.subtype:
                 return choice_display
         return self.subtype
+
+
+class ImportSession(models.Model):
+    """Сессия импорта заданий из JSON файла"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='ID сессии')
+    name = models.CharField(max_length=200, verbose_name='Название сессии')
+    description = models.TextField(blank=True, null=True, verbose_name='Описание')
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='import_sessions', verbose_name='Создано')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    task_type = models.CharField(max_length=10, choices=Task.TASK_TYPE_CHOICES, verbose_name='Тип заданий')
+    subtype = models.CharField(max_length=20, blank=True, null=True, verbose_name='Подтип заданий')
+    tasks_count = models.PositiveIntegerField(default=0, verbose_name='Количество заданий')
+    is_active = models.BooleanField(default=True, verbose_name='Активна')
+
+    class Meta:
+        verbose_name = 'Сессия импорта'
+        verbose_name_plural = 'Сессии импорта'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.tasks_count} заданий)"
+
+    def get_tasks(self):
+        """Возвращает все задания этой сессии"""
+        return self.tasks.all()
+
+    def delete_tasks(self):
+        """Удаляет все задания этой сессии"""
+        count = self.tasks.count()
+        self.tasks.all().delete()
+        self.tasks_count = 0
+        self.save()
+        return count

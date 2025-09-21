@@ -1,0 +1,129 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Курсы{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>Курсы</h1>
+                {% if current_user.is_superuser or current_user.role == 'teacher' %}
+                    <a href="{% url 'courses:course_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Создать курс
+                    </a>
+                {% endif %}
+            </div>
+
+            <!-- Фильтры -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            {{ filter_form.course_type }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ filter_form.search }}
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-outline-primary me-2">Применить</button>
+                            <a href="{% url 'courses:course_list' %}" class="btn btn-outline-secondary">Сбросить</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Список курсов -->
+            {% if page_obj %}
+                <div class="row">
+                    {% for course in page_obj %}
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-{% if course.course_type == 'general' %}primary{% else %}success{% endif %}">
+                                        {{ course.get_course_type_display }}
+                                    </span>
+                                    <small class="text-muted">{{ course.created_at|date:"d.m.Y" }}</small>
+                                </div>
+                                <div class="card-body d-flex flex-column">
+                                    <h5 class="card-title">{{ course.title }}</h5>
+                                    {% if course.description %}
+                                        <p class="card-text text-muted">{{ course.description|truncatewords:15 }}</p>
+                                    {% endif %}
+                                    <div class="mt-auto">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <small class="text-muted">
+                                                <i class="bi bi-person"></i> {{ course.created_by.get_full_name }}
+                                            </small>
+                                            <small class="text-muted">
+                                                <i class="bi bi-book"></i> {{ course.get_lessons_count }} уроков
+                                            </small>
+                                        </div>
+                                        <div class="d-grid gap-2">
+                                            <a href="{% url 'courses:course_detail' course.id %}" class="btn btn-outline-primary">
+                                                <i class="bi bi-eye"></i> Просмотреть
+                                            </a>
+                                            {% if current_user.is_superuser or course.created_by == current_user %}
+                                                <div class="d-flex gap-2">
+                                                    <a href="{% url 'courses:course_edit' course.id %}" class="btn btn-primary btn-sm flex-fill">
+                                                        <i class="bi bi-pencil-square"></i> Редактировать
+                                                    </a>
+                                                    <a href="{% url 'courses:course_delete' course.id %}" class="btn btn-danger btn-sm flex-fill">
+                                                        <i class="bi bi-trash3"></i> Удалить
+                                                    </a>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Пагинация -->
+                {% if page_obj.has_other_pages %}
+                    <nav aria-label="Навигация по страницам">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if request.GET.course_type %}&course_type={{ request.GET.course_type }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">Первая</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.course_type %}&course_type={{ request.GET.course_type }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">Предыдущая</a>
+                                </li>
+                            {% endif %}
+
+                            <li class="page-item active">
+                                <span class="page-link">
+                                    Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}
+                                </span>
+                            </li>
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.course_type %}&course_type={{ request.GET.course_type }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">Следующая</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.course_type %}&course_type={{ request.GET.course_type }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">Последняя</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-book display-1 text-muted"></i>
+                    <h3 class="mt-3">Курсы не найдены</h3>
+                    <p class="text-muted">Пока нет доступных курсов.</p>
+                    {% if current_user.is_superuser or current_user.role == 'teacher' %}
+                        <a href="{% url 'courses:course_create' %}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> Создать первый курс
+                        </a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

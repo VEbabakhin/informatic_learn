@@ -33,6 +33,7 @@ class Group(models.Model):
     name = models.CharField(max_length=100)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_groups')
     created_at = models.DateTimeField(auto_now_add=True)
+    students = models.ManyToManyField(User, through='UserGroup', related_name='student_groups')
     
     def __str__(self):
         return self.name

@@ -3,38 +3,95 @@
 {% block title %}Добавление учеников в группу{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
+<div class="row">
     <div class="col-md-8">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2>Добавление учеников в группу "{{ group.name }}"</h2>
+            <a href="{% url 'group_detail' group.id %}" class="btn btn-info btn-sm">
+                <i class="bi bi-arrow-left"></i> Назад к группе
+            </a>
+        </div>
+        
+        <!-- Уже добавленные ученики -->
+        {% if group.students.all %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="bi bi-people-fill text-success"></i> Уже в группе ({{ group.students.count }})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for student in group.students.all %}
+                            <div class="col-md-6 col-lg-4 mb-2">
+                                <div class="d-flex align-items-center p-2 bg-light rounded">
+                                    <i class="bi bi-check-circle-fill text-success me-2"></i>
+                                    <span>{{ student.get_full_name }}</span>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+        
+        <!-- Форма добавления новых учеников -->
+        {% if form.students.field.queryset %}
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-person-plus text-primary"></i> Добавить новых учеников</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">{{ form.students.label }}</label>
+                            <div class="row">
+                                {% for student in form.students %}
+                                    <div class="col-md-6 col-lg-4 mb-2">
+                                        <div class="form-check">
+                                            {{ student.tag }}
+                                            <label class="form-check-label" for="{{ student.id_for_label }}">
+                                                {{ student.choice_label }}
+                                            </label>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            {% if form.students.errors %}
+                                <div class="text-danger">{{ form.students.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-plus-circle"></i> Добавить выбранных учеников
+                            </button>
+                            <a href="{% url 'group_detail' group.id %}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                <h5><i class="bi bi-info-circle"></i> Все доступные ученики уже добавлены в группу</h5>
+                <p>Нет учеников для добавления в эту группу.</p>
+                <a href="{% url 'group_detail' group.id %}" class="btn btn-primary">
+                    <i class="bi bi-arrow-left"></i> Вернуться к группе
+                </a>
+            </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-md-4">
         <div class="card">
             <div class="card-header">
-                <h4>Добавление учеников в группу "{{ group.name }}"</h4>
+                <h5>Информация о группе</h5>
             </div>
             <div class="card-body">
-                <form method="post">
-                    {% csrf_token %}
-                    <div class="mb-3">
-                        <label class="form-label">{{ form.students.label }}</label>
-                        <div class="row">
-                            {% for student in form.students %}
-                                <div class="col-md-6">
-                                    <div class="form-check">
-                                        {{ student.tag }}
-                                        <label class="form-check-label" for="{{ student.id_for_label }}">
-                                            {{ student.choice_label }}
-                                        </label>
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        </div>
-                        {% if form.students.errors %}
-                            <div class="text-danger">{{ form.students.errors }}</div>
-                        {% endif %}
-                    </div>
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary">Добавить выбранных учеников</button>
-                        <a href="{% url 'group_list' %}" class="btn btn-secondary">Отмена</a>
-                    </div>
-                </form>
+                <p><strong>Название:</strong> {{ group.name }}</p>
+                <p><strong>Создана:</strong> {{ group.created_at|date:"d.m.Y H:i" }}</p>
+                <p><strong>Учеников в группе:</strong> {{ group.students.count }}</p>
+                <p><strong>Доступно для добавления:</strong> {{ form.students.field.queryset.count }}</p>
             </div>
         </div>
     </div>

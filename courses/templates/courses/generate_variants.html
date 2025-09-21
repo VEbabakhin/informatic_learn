@@ -1,0 +1,71 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Генерация вариантов{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="bi bi-shuffle"></i> Генерация вариантов для "{{ lesson.title }}"
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if can_generate %}
+                        <div class="alert alert-info">
+                            <h5><i class="bi bi-info-circle"></i> Информация о генерации</h5>
+                            <ul class="mb-0">
+                                <li><strong>Количество вариантов:</strong> {{ lesson.variants_count }}</li>
+                                <li><strong>Заданий в варианте:</strong> {{ lesson.tasks_per_variant }}</li>
+                                <li><strong>Заданий в пуле:</strong> {{ pool_size }}</li>
+                                <li><strong>Минимум требуется:</strong> {{ min_required_tasks }}</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <h6><i class="bi bi-exclamation-triangle"></i> Внимание!</h6>
+                            <p class="mb-0">
+                                При генерации вариантов все существующие варианты будут удалены и созданы заново. 
+                                Это действие нельзя отменить.
+                            </p>
+                        </div>
+                        
+                        <form method="post">
+                            {% csrf_token %}
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                <a href="{% url 'courses:course_lessons_for_assignment' course.id %}" class="btn btn-secondary me-md-2">
+                                    <i class="bi bi-arrow-left"></i> Назад к урокам
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-shuffle"></i> Сгенерировать варианты
+                                </button>
+                            </div>
+                        </form>
+                    {% else %}
+                        <div class="alert alert-danger">
+                            <h5><i class="bi bi-exclamation-circle"></i> Невозможно сгенерировать варианты</h5>
+                            <p>Недостаточно заданий в пуле для создания вариантов.</p>
+                            <ul class="mb-0">
+                                <li><strong>Заданий в пуле:</strong> {{ pool_size }}</li>
+                                <li><strong>Минимум требуется:</strong> {{ min_required_tasks }}</li>
+                                <li><strong>Не хватает:</strong> {{ min_required_tasks|add:pool_size|add:"-"|add:pool_size }}</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'courses:course_lessons_for_assignment' course.id %}" class="btn btn-secondary me-md-2">
+                                <i class="bi bi-arrow-left"></i> Назад к урокам
+                            </a>
+                            <a href="{% url 'courses:lesson_edit' course.id lesson.id %}" class="btn btn-warning">
+                                <i class="bi bi-pencil"></i> Редактировать урок
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
