@@ -1,0 +1,73 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Создание варианта{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4">Создание варианта</h2>
+        
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-file-earmark-text"></i> Создать вариант по шаблону
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">
+                            Выберите пул заданий из банка заданий, укажите количество заданий в варианте и количество вариантов. 
+                            Система автоматически распределит задания между вариантами максимально разнообразно.
+                        </p>
+                        <ul class="list-unstyled">
+                            <li><i class="bi bi-check-circle text-success"></i> Выбор пула заданий</li>
+                            <li><i class="bi bi-check-circle text-success"></i> Настройка количества заданий</li>
+                            <li><i class="bi bi-check-circle text-success"></i> Автоматическое распределение</li>
+                        </ul>
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <a href="{% url 'variants:variant_create_from_template' %}" class="btn btn-primary w-100">
+                            <i class="bi bi-arrow-right"></i> Создать по шаблону
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6 mb-4">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-list-check"></i> Создать вариант из конкретных заданий
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">
+                            Выберите конкретные задания из банка заданий и создайте один вариант с этими заданиями.
+                            Идеально для создания индивидуальных вариантов.
+                        </p>
+                        <ul class="list-unstyled">
+                            <li><i class="bi bi-check-circle text-success"></i> Выбор конкретных заданий</li>
+                            <li><i class="bi bi-check-circle text-success"></i> Один вариант</li>
+                            <li><i class="bi bi-check-circle text-success"></i> Полный контроль</li>
+                        </ul>
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <a href="{% url 'variants:variant_create_from_specific_tasks' %}" class="btn btn-success w-100">
+                            <i class="bi bi-arrow-right"></i> Создать из заданий
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <a href="{% url 'variants:variant_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Назад к списку вариантов
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+

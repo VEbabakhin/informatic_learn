@@ -6,6 +6,7 @@
     <title>{% block title %}Платформа изучения информатики и подготовки к ЕГЭ{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    {% block extra_head %}{% endblock %}
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script>
@@ -121,13 +122,10 @@
                     <ul class="navbar-nav me-auto">
                         {% if user.role == 'admin' or user.role == 'teacher' %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{% url 'task_list' %}">Задания</a>
+                                <a class="nav-link" href="{% url 'task_list' %}">Банк заданий</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="{% url 'courses:course_list' %}">Курсы</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'courses:lesson_assignments' %}">Занятия</a>
+                                <a class="nav-link" href="{% url 'variants:variant_list' %}">Варианты</a>
                             </li>
                         {% endif %}
                         {% if user.role == 'admin' %}
@@ -175,43 +173,6 @@
         </div>
     </nav>
 
-    <!-- Переключатель групп для администраторов и учителей -->
-    {% if user.is_authenticated and user.role in 'admin,teacher' %}
-        <div class="bg-light border-bottom py-2">
-            <div class="container">
-                <div class="row align-items-center">
-                    <div class="col-md-6">
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-people me-2 text-primary"></i>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="text-end">
-                            <div class="dropdown">
-                                <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" id="groupDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="bi bi-people-fill me-1"></i>
-                                    <span id="group-display">
-                                        {% if selected_group %}
-                                            {{ selected_group.name }}
-                                        {% else %}
-                                            Выберите группу
-                                        {% endif %}
-                                    </span>
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="groupDropdown">
-                                    {% for group in user_groups %}
-                                        <li><a class="dropdown-item" href="#" data-group-id="{{ group.id }}" onclick="selectGroup('{{ group.id }}')">
-                                            <i class="bi bi-people me-2"></i>{{ group.name }}
-                                        </a></li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    {% endif %}
 
     <div class="container mt-4">
         {% csrf_token %}
@@ -229,73 +190,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- JavaScript для переключателя групп -->
-    <script>
-        function selectGroup(groupId) {
-            // Сохраняем выбранную группу в сессии
-            fetch('{% url "set_selected_group" %}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
-                },
-                body: JSON.stringify({group_id: groupId})
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Обновляем отображение группы
-                    const groupDisplay = document.getElementById('group-display');
-                    if (groupDisplay) {
-                        groupDisplay.textContent = data.group_name;
-                    }
-                    // Обновляем страницу для отображения данных выбранной группы
-                    window.location.reload();
-                }
-            })
-            .catch(error => {
-                console.error('Ошибка при выборе группы:', error);
-                showNotification('Ошибка при выборе группы', 'error');
-            });
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            // Восстанавливаем выбранную группу при загрузке страницы
-            const selectedGroupId = '{{ selected_group_id|default:"" }}';
-            const selectedGroupName = '{{ selected_group.name|default:"" }}';
-            
-            if (selectedGroupId && selectedGroupName) {
-                const groupDisplay = document.getElementById('group-display');
-                if (groupDisplay) {
-                    groupDisplay.textContent = selectedGroupName;
-                }
-            }
-        });
-        
-        function showNotification(message, type) {
-            // Создаем уведомление
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show`;
-            alertDiv.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            
-            // Вставляем в начало контейнера
-            const container = document.querySelector('.container.mt-4');
-            if (container) {
-                container.insertBefore(alertDiv, container.firstChild);
-                
-                // Автоматически скрываем через 3 секунды
-                setTimeout(() => {
-                    if (alertDiv.parentNode) {
-                        alertDiv.remove();
-                    }
-                }, 3000);
-            }
-        }
-    </script>
     
     <style>
         /* Стили для выравнивания ответов в заданиях 19-21 */

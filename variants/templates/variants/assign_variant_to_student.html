@@ -1,0 +1,68 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Назначить вариант ученику{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Назначить вариант ученику</h2>
+            <a href="{% url 'variants:variant_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Назад
+            </a>
+        </div>
+
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Назначение варианта</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.variant.id_for_label }}" class="form-label">{{ form.variant.label }}</label>
+                        {{ form.variant }}
+                        {% if form.variant.help_text %}
+                            <small class="form-text text-muted">{{ form.variant.help_text }}</small>
+                        {% endif %}
+                        {% if form.variant.errors %}
+                            <div class="text-danger">{{ form.variant.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.student.id_for_label }}" class="form-label">{{ form.student.label }}</label>
+                        {{ form.student }}
+                        {% if form.student.help_text %}
+                            <small class="form-text text-muted">{{ form.student.help_text }}</small>
+                        {% endif %}
+                        {% if form.student.errors %}
+                            <div class="text-danger">{{ form.student.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.deadline.id_for_label }}" class="form-label">{{ form.deadline.label }}</label>
+                        {{ form.deadline }}
+                        {% if form.deadline.help_text %}
+                            <small class="form-text text-muted">{{ form.deadline.help_text }}</small>
+                        {% endif %}
+                        {% if form.deadline.errors %}
+                            <div class="text-danger">{{ form.deadline.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> Назначить
+                        </button>
+                        <a href="{% url 'variants:variant_list' %}" class="btn btn-outline-secondary">Отмена</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

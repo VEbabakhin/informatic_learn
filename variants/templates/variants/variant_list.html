@@ -1,0 +1,303 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Варианты{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Варианты</h2>
+            <div>
+                <a href="{% url 'variants:assign_variant_to_student' %}" class="btn btn-success me-2">
+                    <i class="bi bi-person-plus"></i> Назначить ученику
+                </a>
+                <a href="{% url 'variants:assign_variants_to_group' %}" class="btn btn-info me-2">
+                    <i class="bi bi-people"></i> Назначить группе
+                </a>
+                <a href="{% url 'variants:variant_create_choice' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Создать вариант
+                </a>
+            </div>
+        </div>
+
+        <!-- Фильтры -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-5">
+                        <select name="variant_type" class="form-select">
+                            <option value="">Все типы вариантов</option>
+                            {% for value, label in VARIANT_TYPE_CHOICES %}
+                                <option value="{{ value }}" {% if variant_type == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <select name="task_type" class="form-select">
+                            <option value="">Все типы заданий</option>
+                            {% for value, label in TASK_TYPE_CHOICES %}
+                                <option value="{{ value }}" {% if task_type == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-outline-primary me-2">Применить</button>
+                        <a href="{% url 'variants:variant_list' %}" class="btn btn-outline-secondary">Сбросить</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Список вариантов -->
+        <div id="variants-container">
+            {% if variants %}
+                {% for task_type_key, variants_group in variants_by_task_type.items %}
+                    <div class="card mb-4">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0">
+                                {% if task_type_key == 'other' %}
+                                    Без типа заданий
+                                {% else %}
+                                    {% for value, label in TASK_TYPE_CHOICES %}
+                                        {% if value == task_type_key %}{{ label }}{% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% for variant in variants_group %}
+                                <div class="col-md-6 col-lg-4 mb-3">
+                                    <div class="card h-100 shadow-sm">
+                                        <div class="card-header bg-primary text-white">
+                                            <h6 class="card-title mb-0">{{ variant.name }}</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <p class="card-text mb-1">
+                                                <strong>Заданий:</strong> {{ variant.get_tasks_count }}<br>
+                                                <strong>Тип варианта:</strong> {{ variant.get_variant_type_display_short }}<br>
+                                                {% if variant.time_limit_minutes %}
+                                                    <strong>Время:</strong> {{ variant.time_limit_minutes }} мин.<br>
+                                                {% endif %}
+                                                <strong>Создано:</strong> {{ variant.created_at|date:"d.m.Y H:i" }}
+                                            </p>
+                                        </div>
+                                        <div class="card-footer bg-transparent">
+                                            <div class="d-flex gap-2 flex-wrap">
+                                                <a href="{% url 'variants:variant_detail' variant.id %}" class="btn btn-sm btn-outline-primary">
+                                                    <i class="bi bi-eye"></i> Просмотр
+                                                </a>
+                                                <a href="{% url 'variants:variant_statistics' variant.id %}" class="btn btn-sm btn-outline-success">
+                                                    <i class="bi bi-bar-chart"></i> Статистика
+                                                </a>
+                                                <a href="{% url 'variants:variant_delete' variant.id %}" class="btn btn-sm btn-outline-danger">
+                                                    <i class="bi bi-trash"></i> Удалить
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> Варианты не найдены. Создайте первый вариант.
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Индикатор загрузки -->
+        <div id="loading-indicator" class="text-center mt-4" style="display: none;">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Загрузка...</span>
+            </div>
+            <p class="mt-2">Загружаем варианты...</p>
+        </div>
+        
+        <!-- Индикатор конца списка -->
+        <div id="end-indicator" class="text-center mt-4" style="display: none;">
+            <div class="alert alert-info">
+                <i class="bi bi-check-circle"></i> Все варианты загружены
+            </div>
+        </div>
+
+        <!-- Скрытый контейнер для проверки пагинации -->
+        <div id="pagination-container" style="display: none;">
+            {% if variants.has_other_pages %}
+                <div class="pagination"></div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Глобальные переменные для бесконечной прокрутки
+let currentPage = 1;
+let isLoading = false;
+let hasMorePages = true;
+let currentFilters = {};
+
+// Инициализация фильтров при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    // Сохраняем текущие фильтры
+    const urlParams = new URLSearchParams(window.location.search);
+    currentFilters = {
+        variant_type: urlParams.get('variant_type') || '',
+        task_type: urlParams.get('task_type') || ''
+    };
+    
+    // Проверяем, есть ли еще страницы
+    const paginationContainer = document.getElementById('pagination-container');
+    if (paginationContainer) {
+        const hasOtherPages = paginationContainer.querySelector('.pagination');
+        hasMorePages = hasOtherPages !== null;
+    }
+    
+    // Устанавливаем текущую страницу
+    const pageParam = urlParams.get('page');
+    if (pageParam) {
+        currentPage = parseInt(pageParam);
+    }
+    
+    // Добавляем обработчик скролла
+    window.addEventListener('scroll', handleScroll);
+    
+    // Обработчик отправки формы фильтров
+    const filterForm = document.querySelector('form[method="get"]');
+    if (filterForm) {
+        filterForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            resetInfiniteScroll();
+            
+            // Собираем новые фильтры
+            const formData = new FormData(filterForm);
+            currentFilters = {
+                variant_type: formData.get('variant_type') || '',
+                task_type: formData.get('task_type') || ''
+            };
+            
+            // Обновляем URL и загружаем первую страницу
+            const params = new URLSearchParams();
+            Object.keys(currentFilters).forEach(key => {
+                if (currentFilters[key]) {
+                    params.set(key, currentFilters[key]);
+                }
+            });
+            params.set('page', '1');
+            
+            window.history.pushState({}, '', `?${params.toString()}`);
+            loadVariants(false);
+        });
+    }
+});
+
+// Функция загрузки вариантов через AJAX
+function loadVariants(append = false) {
+    if (isLoading || !hasMorePages) return;
+    
+    const loadingIndicator = document.getElementById('loading-indicator');
+    const variantsContainer = document.getElementById('variants-container');
+    const endIndicator = document.getElementById('end-indicator');
+    
+    isLoading = true;
+    
+    // Показываем индикатор загрузки
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'block';
+    }
+    
+    // Скрываем индикатор конца списка
+    if (endIndicator) {
+        endIndicator.style.display = 'none';
+    }
+    
+    // Собираем параметры запроса
+    const params = new URLSearchParams();
+    params.set('page', currentPage);
+    
+    // Добавляем фильтры
+    Object.keys(currentFilters).forEach(key => {
+        if (currentFilters[key]) {
+            params.set(key, currentFilters[key]);
+        }
+    });
+    
+    // Выполняем AJAX запрос
+    fetch(`?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.text())
+    .then(html => {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        
+        // Извлекаем контент вариантов
+        const newVariantsContainer = tempDiv.querySelector('#variants-container');
+        if (newVariantsContainer) {
+            if (append) {
+                // Добавляем новые варианты к существующим
+                variantsContainer.innerHTML += newVariantsContainer.innerHTML;
+            } else {
+                // Заменяем весь контент
+                variantsContainer.innerHTML = newVariantsContainer.innerHTML;
+            }
+        }
+        
+        // Проверяем, есть ли еще страницы
+        const paginationContainer = tempDiv.querySelector('#pagination-container');
+        if (paginationContainer) {
+            const hasOtherPages = paginationContainer.querySelector('.pagination');
+            hasMorePages = hasOtherPages !== null;
+        } else {
+            hasMorePages = false;
+        }
+        
+        // Показываем индикатор конца списка, если больше нет страниц
+        if (!hasMorePages && append && endIndicator) {
+            endIndicator.style.display = 'block';
+        }
+        
+        isLoading = false;
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка загрузки вариантов:', error);
+        isLoading = false;
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+        }
+    });
+}
+
+// Функция обработки прокрутки для бесконечной загрузки
+function handleScroll() {
+    // Проверяем, доскроллил ли пользователь до конца страницы
+    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 1000) {
+        if (!isLoading && hasMorePages) {
+            currentPage++;
+            loadVariants(true);
+        }
+    }
+}
+
+// Функция сброса состояния для новых фильтров
+function resetInfiniteScroll() {
+    currentPage = 1;
+    hasMorePages = true;
+    isLoading = false;
+    const endIndicator = document.getElementById('end-indicator');
+    if (endIndicator) {
+        endIndicator.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}

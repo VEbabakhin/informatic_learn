@@ -1,0 +1,353 @@
+{% extends 'users/base.html' %}
+{% load static %}
+
+{% block title %}Создание варианта по шаблону{% endblock %}
+
+{% block extra_head %}
+<style>
+    .task-card {
+        border: 2px solid #dee2e6;
+        transition: all 0.3s;
+    }
+    .task-card:hover {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+    .task-card.selected {
+        border-color: #0d6efd;
+        background-color: #e7f3ff;
+    }
+    .form-check-input:checked ~ .task-card {
+        border-color: #0d6efd;
+        background-color: #e7f3ff;
+    }
+    .task-preview {
+        max-height: 200px;
+        overflow-y: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4">Создание варианта по шаблону</h2>
+        
+        <form method="post" id="variant-form">
+            {% csrf_token %}
+            
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Параметры варианта</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.name.id_for_label }}" class="form-label">{{ form.name.label }}</label>
+                            {{ form.name }}
+                            {% if form.name.help_text %}
+                                <small class="form-text text-muted">{{ form.name.help_text }}</small>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.task_type.id_for_label }}" class="form-label">{{ form.task_type.label }}</label>
+                            {{ form.task_type }}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.variant_type.id_for_label }}" class="form-label">{{ form.variant_type.label }}</label>
+                            {{ form.variant_type }}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.time_limit_minutes.id_for_label }}" class="form-label">{{ form.time_limit_minutes.label }}</label>
+                            {{ form.time_limit_minutes }}
+                            {% if form.time_limit_minutes.help_text %}
+                                <small class="form-text text-muted">{{ form.time_limit_minutes.help_text }}</small>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.tasks_per_variant.id_for_label }}" class="form-label">{{ form.tasks_per_variant.label }}</label>
+                            {{ form.tasks_per_variant }}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.variants_count.id_for_label }}" class="form-label">{{ form.variants_count.label }}</label>
+                            {{ form.variants_count }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mb-4">
+                <button type="submit" class="btn btn-primary" id="submit-btn">
+                    <i class="bi bi-check-circle"></i> Создать варианты
+                </button>
+                <a href="{% url 'variants:variant_create_choice' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Назад
+                </a>
+            </div>
+        </form>
+        
+        <!-- Форма фильтров (отдельная, GET) -->
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Выбор пула заданий</h5>
+                <div>
+                    <span class="badge bg-light text-dark" id="selected-count">Выбрано: 0</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Фильтры для выбора заданий -->
+                <form method="get" id="task-filter-form" class="mb-4" style="font-size: 0.8rem;">
+                    <input type="hidden" name="name" value="{{ form.name.value|default:'' }}">
+                    <input type="hidden" name="tasks_per_variant" value="{{ form.tasks_per_variant.value|default:'' }}">
+                    <input type="hidden" name="variants_count" value="{{ form.variants_count.value|default:'' }}">
+                    <input type="hidden" name="task_type" value="{{ form.task_type.value|default:'' }}">
+                    <input type="hidden" name="variant_type" value="{{ form.variant_type.value|default:'' }}">
+                    <input type="hidden" name="time_limit_minutes" value="{{ form.time_limit_minutes.value|default:'' }}">
+                    <div class="row g-2">
+                        <div class="col-md-1">
+                            <label for="filter_task_id" class="form-label" style="font-size: 0.8rem;">ID задания</label>
+                            <input type="text" name="task_id" id="filter_task_id" class="form-control form-control-sm" value="{{ task_id_filter }}" placeholder="ID">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="filter_task_type" class="form-label" style="font-size: 0.8rem;">Тип задания</label>
+                            <select name="task_type_filter" id="filter_task_type" class="form-select form-select-sm" onchange="updateSubtypes()">
+                                <option value="">Все типы</option>
+                                {% for value, label in TASK_TYPE_CHOICES %}
+                                    <option value="{{ value }}" {% if task_type_filter == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="filter_subtype" class="form-label" style="font-size: 0.8rem;">Подтип</label>
+                            <select name="subtype" id="filter_subtype" class="form-select form-select-sm">
+                                <option value="">Все подтипы</option>
+                                {% for value, label in subtype_choices %}
+                                    <option value="{{ value }}" {% if subtype_filter == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="filter_difficulty" class="form-label" style="font-size: 0.8rem;">Сложность</label>
+                            <select name="difficulty" id="filter_difficulty" class="form-select form-select-sm">
+                                <option value="">Все сложности</option>
+                                {% for value, label in DIFFICULTY_CHOICES %}
+                                    <option value="{{ value }}" {% if difficulty_filter == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="filter_search" class="form-label" style="font-size: 0.8rem;">Поиск</label>
+                            <input type="text" name="search" id="filter_search" class="form-control form-control-sm" value="{{ search_filter }}" placeholder="Поиск по тексту, ответу, типу...">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label" style="font-size: 0.8rem; visibility: hidden;">Действия</label>
+                            <div class="d-flex gap-1">
+                                <button type="submit" class="btn btn-primary btn-sm flex-fill">Применить</button>
+                                <a href="{% url 'variants:variant_create_from_template' %}" class="btn btn-outline-secondary btn-sm" title="Сбросить фильтры" style="flex-shrink: 0;">⟲</a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+                
+                <div class="mb-3">
+                    <input type="text" id="task-search" class="form-control form-control-sm" placeholder="Поиск по контексту...">
+                </div>
+                
+                <div id="tasks-container">
+                    {% if tasks_list %}
+                        <p class="text-muted mb-3 small"><strong>Найдено заданий: {{ tasks_list|length }}</strong></p>
+                        {% for task in tasks_list %}
+                            <div class="card mb-3 task-item" data-task-id="{{ task.id }}" data-task-type="{{ task.task_type }}">
+                                <div class="card-body">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="task_pool" value="{{ task.id }}" id="task_{{ task.id }}" form="variant-form">
+                                        <label class="form-check-label fw-bold" for="task_{{ task.id }}">
+                                            Задание #{{ task.id }}
+                                        </label>
+                                    </div>
+                                    
+                                    <div class="mb-2">
+                                        <span class="badge bg-dark me-2">{{ task.id }}</span>
+                                        <span class="badge bg-primary me-2">{{ task.get_task_type_display }}</span>
+                                        <span class="badge bg-{% if task.difficulty == 'easy' %}success{% elif task.difficulty == 'medium' %}warning{% else %}danger{% endif %}">
+                                            {{ task.get_difficulty_display }}
+                                        </span>
+                                    </div>
+                                    
+                                    <div class="mt-2">
+                                        {% if task.is_html %}
+                                            <div class="task-html-content">{{ task.text|safe }}</div>
+                                        {% else %}
+                                            {{ task.text|linebreaks }}
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if task.image %}
+                                        <div class="mb-3 mt-3">
+                                            <strong>Изображение:</strong>
+                                            <div class="mt-2">
+                                                <img src="{{ task.image.url }}" alt="Изображение к заданию" class="img-fluid" style="max-width: 500px;">
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if task.file %}
+                                        <div class="mb-3 mt-3">
+                                            <div class="mt-2">
+                                                <a href="{{ task.file.url }}" class="btn btn-sm btn-outline-primary" download>
+                                                    <i class="bi bi-download"></i> Скачать файл
+                                                </a>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    <div class="alert alert-info mb-0 mt-3">
+                                        <strong>Правильный ответ:</strong><br>
+                                        <div class="task-answer">{{ task.correct_answer|safe }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% empty %}
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> Задания не найдены. Используйте фильтры выше для поиска заданий или <a href="{% url 'task_list' %}">добавьте задания в банк заданий</a>.
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i> Не удалось загрузить задания. Попробуйте обновить страницу или <a href="{% url 'variants:variant_create_from_template' %}">сбросить фильтры</a>.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('task-search');
+    const taskItems = document.querySelectorAll('.task-item');
+    const checkboxes = document.querySelectorAll('input[name="task_pool"]');
+    const selectedCountSpan = document.getElementById('selected-count');
+    const submitBtn = document.getElementById('submit-btn');
+    const form = document.getElementById('variant-form');
+    
+    // Обновление счетчика выбранных заданий
+    function updateSelectedCount() {
+        const selected = document.querySelectorAll('input[name="task_pool"]:checked').length;
+        selectedCountSpan.textContent = `Выбрано: ${selected}`;
+        
+        // Проверка на минимальное количество - нужно минимум столько заданий, сколько заданий в одном варианте
+        const tasksPerVariant = parseInt(document.getElementById('{{ form.tasks_per_variant.id_for_label }}').value) || 0;
+        
+        if (selected < tasksPerVariant && tasksPerVariant > 0) {
+            selectedCountSpan.className = 'badge bg-warning text-dark';
+            selectedCountSpan.textContent += ` (минимум: ${tasksPerVariant} для одного варианта)`;
+            submitBtn.disabled = selected < tasksPerVariant;
+        } else {
+            selectedCountSpan.className = 'badge bg-light text-dark';
+            submitBtn.disabled = false;
+        }
+    }
+    
+    // Поиск заданий
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            taskItems.forEach(item => {
+                const taskText = item.textContent.toLowerCase();
+                if (taskText.includes(searchTerm)) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+    }
+    
+    // Обновление счетчика при изменении чекбоксов
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateSelectedCount);
+    });
+    
+    // Обновление при изменении параметров
+    const tasksPerVariantInput = document.getElementById('{{ form.tasks_per_variant.id_for_label }}');
+    const variantsCountInput = document.getElementById('{{ form.variants_count.id_for_label }}');
+    if (tasksPerVariantInput) {
+        tasksPerVariantInput.addEventListener('input', updateSelectedCount);
+    }
+    if (variantsCountInput) {
+        variantsCountInput.addEventListener('input', updateSelectedCount);
+    }
+    
+    // Валидация формы
+    form.addEventListener('submit', function(e) {
+        const selected = document.querySelectorAll('input[name="task_pool"]:checked').length;
+        const tasksPerVariant = parseInt(document.getElementById('{{ form.tasks_per_variant.id_for_label }}').value) || 0;
+        
+        if (selected < tasksPerVariant) {
+            e.preventDefault();
+            alert(`Выберите минимум ${tasksPerVariant} заданий для варианта`);
+            return false;
+        }
+    });
+    
+    updateSelectedCount();
+});
+
+// Обновление подтипов при изменении типа задания
+function updateSubtypes() {
+    const taskTypeSelect = document.getElementById('filter_task_type');
+    const subtypeSelect = document.getElementById('filter_subtype');
+    
+    if (taskTypeSelect && subtypeSelect) {
+        const taskType = taskTypeSelect.value;
+        const subtypeChoices = {
+            '1': [['1', 'Соотнесение таблицы и графа']],
+            '2': [['2', 'Строки с пропущенными значениями']],
+            '3': [['3', 'Поиск информации в реляционных базах данных']],
+            '4': [['4', 'Кодирование и декодирование данных. Условие Фано']],
+            '5': [['5', 'Анализ алгоритмов для исполнителей']],
+            '6': [['6', 'Циклические алгоритмы для исполнителя']],
+            '7': [['7', 'Кодирование изображений'], ['7_1', 'Кодирование звуков']],
+            '8': [['8_1', 'Слова по порядку'], ['8_2', 'Подсчет комбинаций']],
+            '9': [['9', 'Обработка числовой информации в электронных таблицах']],
+            '10': [['10', 'Поиск слова в текстовом документе']],
+            '11': [['11', 'Вычисление количества информации']],
+            '12': [['12', 'Алгоритмы для исполнителей с циклами и ветвлениями']],
+            '13': [['13', 'IP адресация']],
+            '14': [['14_1', 'Перевод из 10 с.с.'], ['14_2', 'Перевод в 10 с.с.']],
+            '15': [['15_1', 'Поиск полным перебором'], ['15_2', 'Задания на отрезки']],
+            '16': [['16_1', 'Без использования кеширования'], ['16_2', 'С использованием кеширования']],
+            '17': [['17', 'Обработка целочисленных данных']],
+            '18': [['18', 'Робот-сборщик монет']],
+            '19': [['19', 'Теория игр']],
+            '20': [['20', 'Теория игр']],
+            '21': [['21', 'Теория игр']],
+            '1921': [['19_21_1', 'Задания на 1 кучу'], ['19_21_2', 'Задания на 2 кучи'], ['19_21_3', 'Задания на 3 кучи']],
+            '22': [['22', 'Многопоточные вычисления']],
+            '23': [['23', 'Динамическое программирование. Количество программ']],
+            '24': [['24', 'Обработка тестовых файлов']],
+            '25': [['25', 'Обработка целочисленных данных. Поиск делителей']],
+            '26': [['26', 'Обработка данных с помощью сортировки']],
+            '27': [['27', 'Анализ данных. Кластеризация']]
+        };
+        
+        // Очищаем текущие опции
+        subtypeSelect.innerHTML = '<option value="">Все подтипы</option>';
+        
+        // Добавляем новые опции
+        if (taskType && subtypeChoices[taskType]) {
+            subtypeChoices[taskType].forEach(([value, label]) => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = label;
+                subtypeSelect.appendChild(option);
+            });
+        }
+    }
+}
+</script>
+{% endblock %}
+

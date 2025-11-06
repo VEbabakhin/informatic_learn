@@ -1,0 +1,626 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Выполнение варианта: {{ variant.name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .task-sidebar {
+        position: sticky;
+        top: 20px;
+        max-height: calc(100vh - 100px);
+        overflow-y: auto;
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+    }
+    .task-sidebar .card-body {
+        padding: 0;
+    }
+    .task-number-btn {
+        width: 40px;
+        height: 40px;
+        margin-bottom: 12px;
+        border-radius: 6px;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid #0d6efd;
+        background-color: white;
+        color: #0d6efd;
+        transition: all 0.2s ease;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    .task-number-btn:hover {
+        background-color: #e7f1ff;
+        transform: scale(1.05);
+    }
+    .task-number-btn.active {
+        background-color: #0d6efd !important;
+        color: white !important;
+        border-color: #0d6efd !important;
+        box-shadow: 0 2px 8px rgba(13, 110, 253, 0.3) !important;
+    }
+    .task-number-btn.has-answer {
+        background-color: #0a58ca !important;
+        color: white !important;
+        border-color: #0a58ca !important;
+    }
+    .task-number-btn.has-answer.active {
+        background-color: #0d6efd !important;
+        color: white !important;
+        border-color: #0d6efd !important;
+        box-shadow: 0 2px 8px rgba(13, 110, 253, 0.3) !important;
+    }
+    .task-number-btn:focus {
+        outline: none !important;
+    }
+    .task-content {
+        min-height: 500px;
+    }
+    .timer {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #dc3545;
+    }
+    .timer.warning {
+        color: #ffc107;
+    }
+    .answer-input {
+        height: 45px;
+        font-size: 14px;
+        padding: 8px 12px;
+    }
+    .complete-btn-container {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1000;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>{{ variant.name }}</h2>
+            {% if variant.time_limit_minutes %}
+                <div class="timer" id="timer">
+                    <i class="bi bi-clock"></i> <span id="time-display">--:--:--</span>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Боковая панель с номерами заданий -->
+    <div class="col-md-2">
+        <div class="task-sidebar">
+            <div class="text-center mb-3">
+                <div style="font-size: 0.9rem; color: #6c757d;">Дано ответов</div>
+                <div style="font-size: 1.2rem; font-weight: bold;" id="answers-count">0/{{ tasks|length }}</div>
+            </div>
+            <div class="d-flex flex-column align-items-center">
+                {% for variant_task in tasks %}
+                <button 
+                    type="button" 
+                    class="task-number-btn task-nav-btn" 
+                    data-task-order="{{ variant_task.order }}"
+                    id="task-btn-{{ variant_task.order }}"
+                    onclick="showTask({{ variant_task.order }})"
+                    style="width: 40px; height: 40px; margin-bottom: 12px; border-radius: 6px; font-weight: bold; display: flex; align-items: center; justify-content: center; border: 2px solid #0d6efd; background-color: white; color: #0d6efd; transition: all 0.2s ease; cursor: pointer; font-size: 14px;"
+                >
+                    {{ variant_task.order }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Основная область с заданием -->
+    <div class="col-md-10">
+        <form method="post" id="variant-form">
+            <!-- Кнопка завершения варианта -->
+            <div class="complete-btn-container">
+                <button type="submit" name="complete" class="btn btn-success btn-sm" onclick="return handleComplete();">
+                    <i class="bi bi-check-circle"></i> Завершить вариант
+                </button>
+            </div>
+            {% csrf_token %}
+            <input type="hidden" name="current_task_order" id="current_task_order" value="1">
+            
+            {% for variant_task in tasks %}
+            <div class="card mb-4 task-content" id="task-{{ variant_task.order }}" style="display: {% if forloop.first %}block{% else %}none{% endif %};">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Задание {{ variant_task.order }}</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Текст задания -->
+                    <div class="mb-4">
+                        {% if variant_task.task.is_html %}
+                            <div class="task-html-content">{{ variant_task.task.text|safe }}</div>
+                        {% else %}
+                            <div>{{ variant_task.task.text|linebreaks }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Изображение -->
+                    {% if variant_task.task.image %}
+                        <div class="mb-4">
+                            <img src="{{ variant_task.task.image.url }}" alt="Изображение" class="img-fluid" style="max-width: 100%;">
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Файл -->
+                    {% if variant_task.task.file %}
+                        <div class="mb-4">
+                            <a href="{{ variant_task.task.file.url }}" class="btn btn-outline-primary" download>
+                                <i class="bi bi-download"></i> Скачать файл
+                            </a>
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Поле для ответа и кнопка сохранения -->
+                    <div class="mb-3">
+                        <label for="answer_{{ variant_task.task.id }}" class="form-label">
+                            <strong>Ваш ответ:</strong>
+                        </label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input 
+                                type="text"
+                                class="form-control answer-input" 
+                                id="answer_{{ variant_task.task.id }}" 
+                                name="answer_{{ variant_task.task.id }}"
+                                data-task-id="{{ variant_task.task.id }}"
+                                data-task-order="{{ variant_task.order }}"
+                                style="width: 200px; height: 45px;"
+                            />
+                            <button 
+                                type="button" 
+                                class="btn btn-primary" 
+                                onclick="saveAnswer({{ variant_task.task.id }}, {{ variant_task.order }})"
+                                style="height: 45px; white-space: nowrap;"
+                            >
+                                <i class="bi bi-save"></i> Сохранить
+                            </button>
+                        </div>
+                        <div id="save-status-{{ variant_task.task.id }}" class="mt-2"></div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            
+        </form>
+    </div>
+</div>
+
+<script>
+let executionId = {{ execution.id }};
+let remainingTime = {% if remaining_time %}{{ remaining_time }}{% else %}null{% endif %};
+let timerInterval = null;
+let taskAnswers = {{ task_answers_json|safe }};
+let currentTaskOrder = 1;
+let totalTasks = {{ tasks|length }};
+
+// Загружаем сохраненные ответы
+document.addEventListener('DOMContentLoaded', function() {
+    // Сначала загружаем сохраненные ответы
+    if (taskAnswers) {
+        Object.keys(taskAnswers).forEach(taskId => {
+            const input = document.getElementById('answer_' + taskId);
+            if (input && taskAnswers[taskId]) {
+                input.value = taskAnswers[taskId];
+            }
+        });
+    }
+    
+    // Устанавливаем текущее задание из сохраненного состояния
+    {% if execution.current_task_order %}
+        currentTaskOrder = {{ execution.current_task_order }};
+    {% else %}
+        currentTaskOrder = 1;
+    {% endif %}
+    
+    // Обновляем статус всех кнопок ПОСЛЕ загрузки ответов
+    document.querySelectorAll('.answer-input').forEach(input => {
+        updateTaskButtonStatus(input.dataset.taskOrder);
+    });
+    
+    // Убеждаемся, что все кнопки без ответа имеют белый фон
+    document.querySelectorAll('.task-number-btn').forEach(btn => {
+        if (!btn.classList.contains('has-answer') && !btn.classList.contains('active')) {
+            btn.style.backgroundColor = 'white';
+            btn.style.color = '#0d6efd';
+            btn.style.borderColor = '#0d6efd';
+            btn.style.boxShadow = '';
+        }
+    });
+    
+    // Обновляем счетчик "Дано ответов"
+    updateAnswersCount();
+    
+    // Показываем задание и устанавливаем активную кнопку
+    showTask(currentTaskOrder);
+    updateNavigationButtons();
+});
+
+function showTask(order) {
+    console.log('showTask вызвана с order:', order);
+    
+    // Скрываем все задания
+    const allTasks = document.querySelectorAll('.task-content');
+    console.log('Найдено заданий:', allTasks.length);
+    allTasks.forEach(task => {
+        task.style.display = 'none';
+    });
+    
+    // Показываем выбранное задание
+    const taskElement = document.getElementById('task-' + order);
+    if (taskElement) {
+        taskElement.style.display = 'block';
+        console.log('Задание', order, 'показано');
+    } else {
+        console.error('Задание не найдено для order:', order);
+    }
+    
+    // Убираем класс active со всех кнопок и восстанавливаем правильные цвета
+    document.querySelectorAll('.task-number-btn').forEach(btn => {
+        btn.classList.remove('active');
+        // Восстанавливаем цвет в зависимости от наличия ответа
+        if (btn.classList.contains('has-answer')) {
+            // Если есть ответ - темно-синий
+            btn.style.backgroundColor = '#0a58ca';
+            btn.style.color = 'white';
+            btn.style.borderColor = '#0a58ca';
+            btn.style.boxShadow = '';
+        } else {
+            // Если нет ответа - белый
+            btn.style.backgroundColor = 'white';
+            btn.style.color = '#0d6efd';
+            btn.style.borderColor = '#0d6efd';
+            btn.style.boxShadow = '';
+        }
+    });
+    
+    // Добавляем класс active к выбранной кнопке
+    const activeBtn = document.getElementById('task-btn-' + order);
+    if (activeBtn) {
+        activeBtn.classList.add('active');
+        // Применяем стили активного состояния напрямую
+        if (!activeBtn.classList.contains('has-answer')) {
+            activeBtn.style.backgroundColor = '#0d6efd';
+            activeBtn.style.color = 'white';
+            activeBtn.style.borderColor = '#0d6efd';
+            activeBtn.style.boxShadow = '0 2px 8px rgba(13, 110, 253, 0.3)';
+        } else {
+            // Если есть ответ, все равно показываем активное состояние
+            activeBtn.style.backgroundColor = '#0d6efd';
+            activeBtn.style.color = 'white';
+            activeBtn.style.borderColor = '#0d6efd';
+            activeBtn.style.boxShadow = '0 2px 8px rgba(13, 110, 253, 0.3)';
+        }
+    }
+    
+    currentTaskOrder = order;
+    document.getElementById('current_task_order').value = order;
+    updateNavigationButtons();
+    
+    // Обновляем выполнение в базе данных
+    updateCurrentTask(order);
+    console.log('showTask завершена для order:', order);
+}
+
+function prevTask() {
+    if (currentTaskOrder > 1) {
+        showTask(currentTaskOrder - 1);
+    }
+}
+
+function nextTask() {
+    if (currentTaskOrder < totalTasks) {
+        showTask(currentTaskOrder + 1);
+    }
+}
+
+function updateNavigationButtons() {
+    // Навигация через боковую панель, кнопки удалены
+}
+
+function saveAnswer(taskId, taskOrder) {
+    const input = document.getElementById('answer_' + taskId);
+    if (!input) {
+        console.error('Input не найден для taskId:', taskId);
+        return;
+    }
+    const answer = input.value;
+    const statusElement = document.getElementById('save-status-' + taskId);
+    
+    // Получаем CSRF токен
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        console.error('CSRF токен не найден');
+        if (statusElement) {
+            statusElement.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle"></i> Ошибка: CSRF токен не найден</span>';
+        }
+        return;
+    }
+    
+    if (statusElement) {
+        statusElement.innerHTML = '<i class="bi bi-hourglass-split"></i> Сохранение...';
+    }
+    
+    fetch(`/variants/save-answer/${executionId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken.value
+        },
+        body: JSON.stringify({
+            task_id: taskId,
+            answer: answer,
+            current_task_order: taskOrder
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            if (statusElement) {
+                statusElement.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> Сохранено</span>';
+                setTimeout(() => {
+                    statusElement.innerHTML = '';
+                }, 2000);
+            }
+            updateTaskButtonStatus(taskOrder);
+            updateAnswersCount();
+        } else {
+            console.error('Ошибка сохранения:', data.error);
+            if (statusElement) {
+                statusElement.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle"></i> Ошибка: ' + (data.error || 'Неизвестная ошибка') + '</span>';
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка при сохранении ответа:', error);
+        if (statusElement) {
+            statusElement.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle"></i> Ошибка сохранения</span>';
+        }
+    });
+}
+
+function handleComplete() {
+    if (!confirm('Вы уверены, что хотите завершить вариант? После завершения вы не сможете изменить ответы.')) {
+        return false;
+    }
+    
+    // Сохраняем все ответы перед завершением
+    const answerInputs = document.querySelectorAll('.answer-input');
+    let savePromises = [];
+    
+    answerInputs.forEach(input => {
+        const taskId = input.dataset.taskId;
+        const taskOrder = parseInt(input.dataset.taskOrder);
+        const answer = input.value;
+        
+        // Сохраняем каждый ответ через AJAX
+        savePromises.push(
+            fetch(`/variants/save-answer/${executionId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    task_id: taskId,
+                    answer: answer,
+                    current_task_order: taskOrder
+                })
+            })
+        );
+    });
+    
+    // Ждем завершения всех сохранений, затем отправляем форму
+    Promise.all(savePromises).then(() => {
+        // Добавляем скрытое поле для завершения варианта
+        const form = document.getElementById('variant-form');
+        const completeInput = document.createElement('input');
+        completeInput.type = 'hidden';
+        completeInput.name = 'complete';
+        completeInput.value = '1';
+        form.appendChild(completeInput);
+        form.submit();
+    }).catch(error => {
+        console.error('Ошибка при сохранении ответов:', error);
+        // Все равно отправляем форму, так как ответы могут быть сохранены на сервере
+        const form = document.getElementById('variant-form');
+        const completeInput = document.createElement('input');
+        completeInput.type = 'hidden';
+        completeInput.name = 'complete';
+        completeInput.value = '1';
+        form.appendChild(completeInput);
+        form.submit();
+    });
+    
+    return false; // Предотвращаем стандартную отправку формы
+}
+
+function updateTaskButtonStatus(taskOrder) {
+    const btn = document.getElementById('task-btn-' + taskOrder);
+    if (btn) {
+        // Находим input по taskOrder
+        const answerInputs = document.querySelectorAll('.answer-input');
+        let found = false;
+        answerInputs.forEach(input => {
+            if (input.dataset.taskOrder == taskOrder) {
+                if (input.value.trim()) {
+                    btn.classList.add('has-answer');
+                    // Применяем темно-синий цвет, если кнопка не активна
+                    if (!btn.classList.contains('active')) {
+                        btn.style.backgroundColor = '#0a58ca';
+                        btn.style.color = 'white';
+                        btn.style.borderColor = '#0a58ca';
+                        btn.style.boxShadow = '';
+                    }
+                    found = true;
+                }
+            }
+        });
+        if (!found) {
+            btn.classList.remove('has-answer');
+            // Устанавливаем белый фон, если кнопка не активна
+            if (!btn.classList.contains('active')) {
+                btn.style.backgroundColor = 'white';
+                btn.style.color = '#0d6efd';
+                btn.style.borderColor = '#0d6efd';
+                btn.style.boxShadow = '';
+            }
+        } else {
+            // Если ответ найден, но кнопка не активна, устанавливаем темно-синий
+            if (!btn.classList.contains('active')) {
+                btn.style.backgroundColor = '#0a58ca';
+                btn.style.color = 'white';
+                btn.style.borderColor = '#0a58ca';
+                btn.style.boxShadow = '';
+            }
+        }
+    }
+    // Обновляем счетчик "Дано ответов"
+    updateAnswersCount();
+}
+
+function updateAnswersCount() {
+    const answerInputs = document.querySelectorAll('.answer-input');
+    let answeredCount = 0;
+    answerInputs.forEach(input => {
+        if (input.value.trim()) {
+            answeredCount++;
+        }
+    });
+    const countElement = document.getElementById('answers-count');
+    if (countElement) {
+        countElement.textContent = answeredCount + '/' + totalTasks;
+    }
+}
+
+function updateCurrentTask(order) {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!csrfToken) {
+        console.error('CSRF токен не найден при обновлении текущего задания');
+        return;
+    }
+    
+    fetch(`/variants/save-answer/${executionId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken.value
+        },
+        body: JSON.stringify({
+            task_id: null,
+            answer: '',
+            current_task_order: order
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (!data.success) {
+            console.error('Ошибка обновления текущего задания:', data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка при обновлении текущего задания:', error);
+    });
+}
+
+// Автосохранение при потере фокуса
+document.querySelectorAll('.answer-input').forEach(input => {
+    input.addEventListener('blur', function() {
+        const taskId = this.dataset.taskId;
+        const taskOrder = this.dataset.taskOrder;
+        if (this.value.trim()) {
+            saveAnswer(taskId, taskOrder);
+        } else {
+            // Обновляем статус кнопки даже если ответ пустой
+            updateTaskButtonStatus(taskOrder);
+        }
+    });
+    
+    // Обновляем статус кнопки при вводе
+    input.addEventListener('input', function() {
+        const taskOrder = this.dataset.taskOrder;
+        updateTaskButtonStatus(taskOrder);
+        updateAnswersCount();
+    });
+});
+
+// Таймер
+console.log('remainingTime:', remainingTime);
+if (remainingTime !== null && remainingTime !== undefined && remainingTime > 0) {
+    let timeLeft = parseInt(remainingTime);
+    const timerElement = document.getElementById('timer');
+    const timeDisplayElement = document.getElementById('time-display');
+    
+    if (timerElement && timeDisplayElement) {
+        function updateTimer() {
+            if (timeLeft <= 0) {
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                }
+                timeDisplayElement.textContent = 'Время истекло';
+                alert('Время выполнения варианта истекло!');
+                document.getElementById('variant-form').submit();
+                return;
+            }
+            
+            const hours = Math.floor(timeLeft / 3600);
+            const minutes = Math.floor((timeLeft % 3600) / 60);
+            const seconds = timeLeft % 60;
+            
+            let timeString = '';
+            if (hours > 0) {
+                timeString += hours + 'ч ';
+            }
+            if (minutes > 0) {
+                timeString += minutes + 'м ';
+            }
+            timeString += seconds + 'с';
+            
+            timeDisplayElement.textContent = timeString;
+            
+            if (timeLeft <= 300) { // 5 минут
+                timerElement.classList.add('warning');
+            } else {
+                timerElement.classList.remove('warning');
+            }
+            
+            timeLeft--;
+        }
+        
+        updateTimer();
+        timerInterval = setInterval(updateTimer, 1000);
+    } else {
+        console.error('Элементы таймера не найдены');
+    }
+} else {
+    console.log('Таймер не запущен. remainingTime:', remainingTime);
+}
+
+// Предупреждение при уходе со страницы
+window.addEventListener('beforeunload', function(e) {
+    e.preventDefault();
+    e.returnValue = '';
+});
+</script>
+{% endblock %}

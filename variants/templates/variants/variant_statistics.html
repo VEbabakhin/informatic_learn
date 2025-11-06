@@ -1,0 +1,176 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Статистика: {{ variant.name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Статистика: {{ variant.name }}</h2>
+            <div class="d-flex gap-2">
+                <a href="{% url 'variants:variant_detail' variant.id %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Назад к варианту
+                </a>
+            </div>
+        </div>
+
+        <!-- Выбор группы -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Выбор группы</h5>
+            </div>
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-6">
+                        <label for="group" class="form-label">Группа</label>
+                        <select name="group" id="group" class="form-select" onchange="this.form.submit()">
+                            <option value="">Выберите группу</option>
+                            {% for group in groups %}
+                                <option value="{{ group.id }}" {% if selected_group and selected_group.id == group.id %}selected{% endif %}>
+                                    {{ group.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Статистика по ученикам -->
+        {% if students_statistics %}
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        {% if selected_group %}
+                            Статистика группы "{{ selected_group.name }}"
+                        {% else %}
+                            Статистика по всем выполнившим вариант
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Ученик</th>
+                                    <th>Статус</th>
+                                    {% for task in tasks %}
+                                        <th class="text-center">№{{ task.order }}</th>
+                                    {% endfor %}
+                                    {% if variant.time_limit_minutes %}
+                                        <th>Время</th>
+                                    {% endif %}
+                                    <th class="text-center">Результат</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stat in students_statistics %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ stat.student.get_full_name }}</strong>
+                                    </td>
+                                    <td>
+                                        {% if stat.execution %}
+                                            {% if stat.execution.status == 'completed' %}
+                                                <span class="badge bg-success">Завершено</span>
+                                            {% elif stat.execution.status == 'timeout' %}
+                                                <span class="badge bg-warning">Завершено по времени</span>
+                                            {% elif stat.execution.status == 'in_progress' %}
+                                                <span class="badge bg-info">В процессе</span>
+                                                {% if stat.current_task %}
+                                                    <br><small>Задание №{{ stat.current_task.order }}</small>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="badge bg-secondary">Не начато</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-secondary">Не начато</span>
+                                        {% endif %}
+                                    </td>
+                                    {% for task_status in stat.task_statuses %}
+                                        <td class="text-center">
+                                            {% if task_status.status == 'correct' %}
+                                                <span style="font-size: 20px; color: #28a745; font-weight: bold;" title="Правильно">+</span>
+                                            {% elif task_status.status == 'incorrect' %}
+                                                <span style="font-size: 20px; color: #dc3545; font-weight: bold;" title="Неправильно">−</span>
+                                            {% elif task_status.status == 'not_started' %}
+                                                <span style="font-size: 16px; color: #adb5bd;" title="Не приступал">—</span>
+                                            {% endif %}
+                                        </td>
+                                    {% endfor %}
+                                    {% if variant.time_limit_minutes %}
+                                        <td>
+                                            {% if stat.execution and stat.execution.status == 'in_progress' and stat.remaining_time is not None and stat.remaining_time > 0 %}
+                                                <div id="timer-{{ stat.execution.id }}" class="text-danger">
+                                                    <i class="bi bi-clock"></i> 
+                                                    <span id="time-{{ stat.execution.id }}"></span>
+                                                </div>
+                                                <script>
+                                                    (function() {
+                                                        var remainingTime = {{ stat.remaining_time }};
+                                                        var executionId = {{ stat.execution.id }};
+                                                        var timerElement = document.getElementById('time-' + executionId);
+                                                        
+                                                        if (!timerElement) return;
+                                                        
+                                                        function updateTimer() {
+                                                            if (remainingTime <= 0) {
+                                                                timerElement.textContent = 'Время истекло';
+                                                                return;
+                                                            }
+                                                            
+                                                            var hours = Math.floor(remainingTime / 3600);
+                                                            var minutes = Math.floor((remainingTime % 3600) / 60);
+                                                            var seconds = remainingTime % 60;
+                                                            
+                                                            var timeString = '';
+                                                            if (hours > 0) {
+                                                                timeString += hours + 'ч ';
+                                                            }
+                                                            if (minutes > 0) {
+                                                                timeString += minutes + 'м ';
+                                                            }
+                                                            timeString += seconds + 'с';
+                                                            
+                                                            timerElement.textContent = timeString;
+                                                            remainingTime--;
+                                                            
+                                                            if (remainingTime > 0) {
+                                                                setTimeout(updateTimer, 1000);
+                                                            }
+                                                        }
+                                                        
+                                                        updateTimer();
+                                                    })();
+                                                </script>
+                                            {% elif stat.execution and stat.execution.status in 'completed,timeout' %}
+                                                {% if variant.variant_type == 'control' and stat.elapsed_time_formatted %}
+                                                    <span class="text-muted">{{ stat.elapsed_time_formatted }}</span>
+                                                {% else %}
+                                                    <span class="text-muted">Завершено</span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                    {% endif %}
+                                    <td class="text-center">
+                                        <strong>{{ stat.correct_count }}/{{ stat.total_count }}</strong>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        {% elif selected_group %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> В группе "{{ selected_group.name }}" нет учеников.
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

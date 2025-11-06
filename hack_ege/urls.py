@@ -30,7 +30,7 @@ urlpatterns = [
     path('', redirect_to_dashboard),
     path('users/', include('users.urls')),
     path('tasks/', include('tasks.urls')),
-    path('courses/', include('courses.urls')),
+    path('variants/', include('variants.urls')),
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
 ]
 

@@ -1,0 +1,33 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Удаление варианта{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">Удаление варианта</h5>
+            </div>
+            <div class="card-body">
+                <p>Вы уверены, что хотите удалить вариант <strong>"{{ variant.name }}"</strong>?</p>
+                <p class="text-muted">Это действие нельзя отменить. Все выполнения этого варианта также будут удалены.</p>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash"></i> Удалить
+                        </button>
+                        <a href="{% url 'variants:variant_detail' variant.id %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Отмена
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+

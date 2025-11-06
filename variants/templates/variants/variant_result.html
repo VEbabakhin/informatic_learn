@@ -1,0 +1,258 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Результаты: {{ variant.name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%) !important;
+        min-height: 100vh;
+    }
+    /* Изменяем только контейнер контента, не трогая навигацию */
+    .container.mt-4 {
+        max-width: 100% !important;
+        padding: 0 !important;
+    }
+    .results-container {
+        max-width: 1200px !important;
+        margin: 0 auto !important;
+        padding: 50px 30px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        min-height: calc(100vh - 200px) !important;
+    }
+    .results-header {
+        width: 100%;
+        max-width: 1000px;
+        margin-bottom: 35px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: white;
+        padding: 20px 30px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    .results-header h2 {
+        color: #2c3e50;
+        font-weight: 600;
+        font-size: 1.5rem;
+        margin: 0;
+    }
+    .total-score {
+        font-size: 1.1rem;
+        color: #495057;
+        font-weight: 500;
+        margin-top: 8px;
+    }
+    .total-score-value {
+        color: #28a745;
+        font-weight: 700;
+        font-size: 1.5rem;
+    }
+    .results-header .btn {
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    .results-header .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .results-table-wrapper {
+        width: 100% !important;
+        max-width: 1000px !important;
+        background: white !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+        overflow: hidden !important;
+        margin: 0 auto !important;
+        border: 1px solid #e9ecef;
+    }
+    .results-table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        background-color: white !important;
+        margin: 0 !important;
+    }
+    .results-table thead {
+        background: #6c757d !important;
+        position: relative;
+    }
+    .results-table th {
+        padding: 16px 12px !important;
+        text-align: center !important;
+        font-weight: 600 !important;
+        color: white !important;
+        font-size: 13px !important;
+        text-transform: none !important;
+        letter-spacing: 0.5px !important;
+        border: none !important;
+        position: relative;
+    }
+    .results-table th:first-child {
+        border-top-left-radius: 12px;
+    }
+    .results-table th:last-child {
+        border-top-right-radius: 12px;
+    }
+    .results-table tbody tr {
+        transition: all 0.3s ease !important;
+        border-bottom: 1px solid #e9ecef !important;
+    }
+    .results-table tbody tr:nth-child(even) {
+        background-color: #f8f9fa !important;
+    }
+    .results-table tbody tr:hover {
+        background-color: #f8f9fa !important;
+    }
+    .results-table tbody tr:last-child {
+        border-bottom: none;
+    }
+    .results-table td {
+        padding: 16px 12px !important;
+        border: none !important;
+        vertical-align: middle !important;
+        text-align: center !important;
+    }
+    .task-number {
+        font-weight: 600;
+        color: #495057;
+        font-size: 15px;
+    }
+    .score-correct {
+        color: #28a745;
+        font-weight: 600;
+        font-size: 16px;
+    }
+    .score-incorrect {
+        color: #6c757d;
+        font-weight: 600;
+        font-size: 16px;
+    }
+    .answer-text {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        color: #495057;
+        line-height: 1.5;
+        font-size: 14px;
+        text-align: left;
+        padding: 6px 10px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border-left: 2px solid #dee2e6;
+        max-width: 300px;
+    }
+    .answer-empty {
+        color: #adb5bd;
+        font-style: italic;
+        font-size: 13px;
+    }
+    .correct-answer-text {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        color: #495057;
+        line-height: 1.5;
+        font-size: 14px;
+        text-align: left;
+        padding: 6px 10px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border-left: 2px solid #28a745;
+        max-width: 300px;
+    }
+    @media (max-width: 768px) {
+        .results-container {
+            padding: 30px 15px;
+        }
+        .results-header {
+            flex-direction: column;
+            gap: 15px;
+            text-align: center;
+            padding: 15px 20px;
+        }
+        .results-header h2 {
+            font-size: 1.25rem;
+        }
+        .total-score {
+            font-size: 1rem;
+            margin-top: 6px;
+        }
+        .total-score-value {
+            font-size: 1.25rem;
+        }
+        .results-table-wrapper {
+            border-radius: 12px;
+            overflow-x: auto;
+        }
+        .results-table th,
+        .results-table td {
+            padding: 14px 10px;
+            font-size: 13px;
+        }
+        .answer-text, .correct-answer-text {
+            font-size: 13px;
+            padding: 6px 10px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="results-container">
+    <div class="results-header">
+        <div>
+            <h2 style="margin-bottom: 8px;">Дано ответов {{ answered_count }}/{{ total_count }}</h2>
+            <div class="total-score">
+                Набрано баллов: <span class="total-score-value">{{ correct_count }}</span> из {{ total_count }}
+            </div>
+        </div>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Назад
+        </a>
+    </div>
+
+    <!-- Таблица результатов -->
+    <div class="results-table-wrapper">
+        <div class="table-responsive">
+            <table class="results-table">
+                <thead>
+                    <tr>
+                        <th style="width: 60px;">№</th>
+                        <th style="width: 80px;">Балл</th>
+                        <th style="width: 320px;">Ваш ответ</th>
+                        <th style="width: 320px;">Правильный ответ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in task_results %}
+                    <tr>
+                        <td class="text-center task-number">{{ result.variant_task.order }}</td>
+                        <td class="text-center {% if result.is_correct %}score-correct{% else %}score-incorrect{% endif %}">
+                            {% if result.is_correct %}1{% else %}0{% endif %}
+                        </td>
+                        <td style="text-align: left;">
+                            {% if result.user_answer %}
+                                <div class="answer-text">{{ result.user_answer }}</div>
+                            {% else %}
+                                <span class="answer-empty">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: left;">
+                            {% if variant.variant_type == 'control' %}
+                                <div class="correct-answer-text" style="color: #adb5bd; font-style: italic;">Ответ скрыт</div>
+                            {% else %}
+                                <div class="correct-answer-text">{{ result.variant_task.task.correct_answer }}</div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

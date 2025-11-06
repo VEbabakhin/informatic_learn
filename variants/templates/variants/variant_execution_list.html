@@ -1,0 +1,94 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Мои выполнения{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4">Мои выполнения вариантов</h2>
+        
+        {% if executions %}
+            <div class="row">
+                {% for execution in executions %}
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header bg-{% if execution.status == 'completed' %}success{% elif execution.status == 'timeout' %}warning{% else %}primary{% endif %} text-white">
+                            <h5 class="card-title mb-0">{{ execution.variant.name }}</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">
+                                <strong>Статус:</strong> 
+                                {% if execution.status == 'completed' %}
+                                    <span class="badge bg-success">Завершено</span>
+                                {% elif execution.status == 'timeout' %}
+                                    <span class="badge bg-warning text-dark">Завершено по времени</span>
+                                {% elif execution.status == 'in_progress' %}
+                                    <span class="badge bg-primary">В процессе</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Не начато</span>
+                                {% endif %}
+                                <br>
+                                {% if execution.status == 'completed' or execution.status == 'timeout' %}
+                                    <strong>Результат:</strong> {{ execution.get_correct_answers_count }}/{{ execution.get_total_tasks_count }}<br>
+                                {% endif %}
+                                {% if execution.started_at %}
+                                    <strong>Начато:</strong> {{ execution.started_at|date:"d.m.Y H:i" }}<br>
+                                {% endif %}
+                                {% if execution.completed_at %}
+                                    <strong>Завершено:</strong> {{ execution.completed_at|date:"d.m.Y H:i" }}<br>
+                                {% endif %}
+                                {% if execution.get_elapsed_time %}
+                                    <strong>Время:</strong> {{ execution.get_elapsed_time }}<br>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            {% if execution.status == 'completed' or execution.status == 'timeout' %}
+                                <a href="{% url 'variants:variant_result' execution.id %}" class="btn btn-primary w-100">
+                                    <i class="bi bi-eye"></i> Просмотреть результаты
+                                </a>
+                            {% elif execution.status == 'in_progress' %}
+                                <a href="{% url 'variants:variant_execute' execution.id %}" class="btn btn-warning w-100">
+                                    <i class="bi bi-arrow-clockwise"></i> Продолжить выполнение
+                                </a>
+                            {% else %}
+                                <a href="{% url 'variants:variant_start' execution.variant.id %}" class="btn btn-success w-100">
+                                    <i class="bi bi-play-circle"></i> Начать выполнение
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Пагинация -->
+            {% if executions.has_other_pages %}
+                <nav aria-label="Навигация по страницам">
+                    <ul class="pagination justify-content-center">
+                        {% if executions.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ executions.previous_page_number }}">Предыдущая</a>
+                            </li>
+                        {% endif %}
+                        <li class="page-item active">
+                            <span class="page-link">Страница {{ executions.number }} из {{ executions.paginator.num_pages }}</span>
+                        </li>
+                        {% if executions.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ executions.next_page_number }}">Следующая</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> У вас пока нет выполненных вариантов.
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+

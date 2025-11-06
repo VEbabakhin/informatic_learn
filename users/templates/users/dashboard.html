@@ -5,180 +5,165 @@
 {% block content %}
 <div class="row">
     <div class="col-12">
-        <h1 class="mb-4">Платформа изучения информатики и подготовки к ЕГЭ</h1>
+        <h1 class="mb-4">Добро пожаловать на платформу!</h1>
     </div>
 </div>
 
 {% if user.role == 'student' %}
-    <!-- Вкладки для учеников -->
-    <div class="row">
-        <div class="col-12">
-            <ul class="nav nav-tabs" id="lessonTabs" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="assigned-tab" data-bs-toggle="tab" data-bs-target="#assigned" type="button" role="tab">
-                        <i class="bi bi-calendar-check"></i> Заданные уроки
-                        {% if assigned_executions %}
-                            <span class="badge bg-primary ms-2">{{ assigned_executions|length }}</span>
-                        {% endif %}
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="completed-tab" data-bs-toggle="tab" data-bs-target="#completed" type="button" role="tab">
-                        <i class="bi bi-check-circle"></i> Завершенные уроки
-                        {% if completed_executions %}
-                            <span class="badge bg-success ms-2">{{ completed_executions|length }}</span>
-                        {% endif %}
-                    </button>
-                </li>
-            </ul>
-            
-            <div class="tab-content" id="lessonTabsContent">
-                <!-- Заданные уроки -->
-                <div class="tab-pane fade show active" id="assigned" role="tabpanel">
-                    <div class="row mt-4">
-                        {% if assigned_executions %}
-                            {% for execution in assigned_executions %}
-                                <div class="col-md-6 col-lg-4 mb-4">
-                                    <div class="card h-100 shadow-sm">
-                                        <div class="card-header text-white" style="background: linear-gradient(135deg, #667eea, #764ba2) !important;">
-                                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                                <h5 class="card-title mb-0 text-white">
-                                                    {{ execution.lesson.title }}
-                                                </h5>
-                                                <span class="badge bg-white text-dark">{{ execution.get_total_tasks }} заданий</span>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <span class="badge bg-light text-dark">
-                                                    {% if execution.lesson.lesson_type == 'classwork' %}
-                                                        <i class="bi bi-pencil"></i> Классная работа
-                                                    {% elif execution.lesson.lesson_type == 'homework' %}
-                                                        <i class="bi bi-house"></i> Домашняя работа
-                                                    {% else %}
-                                                        <i class="bi bi-clipboard-check"></i> Контрольная работа
-                                                    {% endif %}
-                                                </span>
-                                                <small class="text-white-50">{{ execution.assignment.assigned_at|date:"d.m.Y H:i" }}</small>
-                                            </div>
-                                        </div>
-                                        <div class="card-body d-flex flex-column text-dark">
-                                            <div class="mb-3">
-                                                <p class="card-text">
-                                                    <strong>Назначил:</strong> {{ execution.assignment.assigned_by.get_full_name|default:execution.assignment.assigned_by.username }}
-                                                </p>
-                                                {% if execution.assignment.description %}
-                                                    <p class="card-text text-muted small">{{ execution.assignment.description }}</p>
-                                                {% endif %}
-                                            </div>
-                                            <div class="mt-auto">
-                                                {% if execution.status == 'assigned' %}
-                                                    <a href="{% url 'courses:start_lesson' execution.id %}" class="btn btn-success w-100">
-                                                        <i class="bi bi-play-circle"></i> Выполнить урок
-                                                    </a>
-                                                {% elif execution.status == 'in_progress' %}
-                                                    <a href="{% url 'courses:start_lesson' execution.id %}" class="btn btn-warning w-100">
-                                                        <i class="bi bi-arrow-clockwise"></i> Продолжить урок
-                                                    </a>
-                                                {% endif %}
-                                            </div>
-                                        </div>
+<!-- Вкладки для разделов -->
+<ul class="nav nav-tabs mb-4" id="variantsTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="to-do-tab" data-bs-toggle="tab" data-bs-target="#to-do" type="button" role="tab" aria-controls="to-do" aria-selected="true">
+            <i class="bi bi-list-task"></i> К выполнению
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="completed-tab" data-bs-toggle="tab" data-bs-target="#completed" type="button" role="tab" aria-controls="completed" aria-selected="false">
+            <i class="bi bi-check-circle"></i> Выполненные
+        </button>
+    </li>
+</ul>
+
+<!-- Содержимое вкладок -->
+<div class="tab-content" id="variantsTabsContent">
+    <!-- Вкладка: К выполнению -->
+    <div class="tab-pane fade show active" id="to-do" role="tabpanel" aria-labelledby="to-do-tab">
+        {% if variants_to_do %}
+            <div class="row">
+                {% for item in variants_to_do %}
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0">{{ item.variant.name }}</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text mb-2">
+                                <strong>Заданий:</strong> {{ item.variant.get_tasks_count }}<br>
+                                <strong>Тип варианта:</strong> {{ item.variant.get_variant_type_display_short }}<br>
+                                {% if item.variant.time_limit_minutes %}
+                                    <strong>Время:</strong> {{ item.variant.time_limit_minutes }} мин.<br>
+                                {% endif %}
+                                {% if item.assignment.deadline %}
+                                    <strong>Срок:</strong> {{ item.assignment.deadline|date:"d.m.Y H:i" }}<br>
+                                {% endif %}
+                            </p>
+                            
+                            {% if item.is_overdue %}
+                                <div class="alert alert-danger mb-2 py-2">
+                                    <i class="bi bi-exclamation-triangle"></i> Просрочено
+                                </div>
+                            {% endif %}
+                            
+                            {% if item.execution %}
+                                {% if item.execution.status == 'in_progress' %}
+                                    <div class="alert alert-info mb-2 py-2">
+                                        <i class="bi bi-clock-history"></i> В процессе
                                     </div>
-                                </div>
-                            {% endfor %}
-                        {% else %}
-                            <div class="col-12">
-                                <div class="text-center py-5">
-                                    <i class="bi bi-calendar-x display-1 text-muted mb-3"></i>
-                                    <h4 class="text-muted">Вам пока не назначены уроки</h4>
-                                </div>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <div class="d-flex gap-2">
+                                {% if item.execution %}
+                                    {% if item.execution.status == 'in_progress' %}
+                                        <a href="{% url 'variants:variant_execute' item.execution.id %}" class="btn btn-sm btn-primary">
+                                            <i class="bi bi-play-circle"></i> Продолжить
+                                        </a>
+                                    {% endif %}
+                                {% else %}
+                                    <a href="{% url 'variants:variant_start' item.variant.id %}" class="btn btn-sm btn-primary">
+                                        <i class="bi bi-play-circle"></i> Начать выполнение
+                                    </a>
+                                {% endif %}
                             </div>
-                        {% endif %}
+                        </div>
                     </div>
                 </div>
-                
-                <!-- Завершенные уроки -->
-                <div class="tab-pane fade" id="completed" role="tabpanel">
-                    <div class="row mt-4">
-                        {% if completed_executions %}
-                            {% for execution in completed_executions %}
-                                <div class="col-md-6 col-lg-4 mb-4">
-                                    <div class="card h-100 shadow-sm">
-                                        <div class="card-header text-white" style="background: linear-gradient(135deg, #667eea, #764ba2) !important;">
-                                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                                <h5 class="card-title mb-0 text-white">
-                                                    {{ execution.lesson.title }}
-                                                </h5>
-                                                <span class="badge bg-white text-dark">{{ execution.get_total_tasks }} заданий</span>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <span class="badge bg-light text-dark">
-                                                    {% if execution.lesson.lesson_type == 'classwork' %}
-                                                        <i class="bi bi-pencil"></i> Классная работа
-                                                    {% elif execution.lesson.lesson_type == 'homework' %}
-                                                        <i class="bi bi-house"></i> Домашняя работа
-                                                    {% else %}
-                                                        <i class="bi bi-clipboard-check"></i> Контрольная работа
-                                                    {% endif %}
-                                                </span>
-                                                <small class="text-white-50">{{ execution.completed_at|date:"d.m.Y H:i" }}</small>
-                                            </div>
-                                        </div>
-                                        <div class="card-body d-flex flex-column text-dark">
-                                            <div class="mb-3">
-                                                <p class="card-text">
-                                                    <strong>Правильных ответов:</strong> {{ execution.get_correct_answers_count }}/{{ execution.get_total_tasks }}
-                                                </p>
-                                            </div>
-                                            <div class="mt-auto">
-                                                <a href="{% url 'courses:view_completed_lesson' execution.id %}" class="btn btn-outline-success w-100">
-                                                    <i class="bi bi-eye"></i> Просмотреть результаты
-                                                </a>
-                                            </div>
-                                        </div>
-                                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> Нет вариантов к выполнению.
+            </div>
+        {% endif %}
+        
+        <!-- Выполнить по номеру -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">Выполнить вариант по номеру</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" action="{% url 'variants:variant_start_by_number' %}">
+                            {% csrf_token %}
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-6">
+                                    <label for="variant_id" class="form-label">Номер варианта</label>
+                                    <input type="number" class="form-control" id="variant_id" name="variant_id" placeholder="Введите номер варианта" required>
                                 </div>
-                            {% endfor %}
-                        {% else %}
-                            <div class="col-12">
-                                <div class="text-center py-5">
-                                    <i class="bi bi-check-circle display-1 text-muted mb-3"></i>
-                                    <h4 class="text-muted">Нет завершенных уроков</h4>
-                                    <p class="text-muted">Выполните уроки, чтобы они появились здесь.</p>
+                                <div class="col-md-6">
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="bi bi-play-circle"></i> Начать выполнение
+                                    </button>
                                 </div>
                             </div>
-                        {% endif %}
+                        </form>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-{% endif %}
+    
+    <!-- Вкладка: Выполненные -->
+    <div class="tab-pane fade" id="completed" role="tabpanel" aria-labelledby="completed-tab">
+        {% if variants_completed %}
+            <div class="row">
+                {% for item in variants_completed %}
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="card-title mb-0">{{ item.variant.name }}</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text mb-2">
+                                <strong>Заданий:</strong> {{ item.variant.get_tasks_count }}<br>
+                                <strong>Тип варианта:</strong> {{ item.variant.get_variant_type_display_short }}<br>
+                                {% if item.execution.completed_at %}
+                                    <strong>Завершено:</strong> {{ item.execution.completed_at|date:"d.m.Y H:i" }}<br>
+                                {% endif %}
+                            </p>
+                            
+                            <div class="alert alert-success mb-2 py-2">
+                                <i class="bi bi-check-circle"></i> Завершено
+                            </div>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <a href="{% url 'variants:variant_result' item.execution.id %}" class="btn btn-sm btn-success">
+                                <i class="bi bi-eye"></i> Результаты
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> Нет выполненных вариантов.
+            </div>
+        {% endif %}
+    </div>
+</div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Проверяем, есть ли якорь #completed в URL
-    if (window.location.hash === '#completed') {
-        // Небольшая задержка для полной загрузки вкладок
-        setTimeout(function() {
-            // Находим вкладку "Завершенные уроки" и переключаемся на неё
-            const completedTab = document.getElementById('completed-tab');
-            const completedPane = document.getElementById('completed');
-            
-            if (completedTab && completedPane) {
-                // Убираем активный класс с текущей вкладки
-                const activeTab = document.querySelector('.nav-link.active');
-                const activePane = document.querySelector('.tab-pane.active');
-                
-                if (activeTab) activeTab.classList.remove('active');
-                if (activePane) activePane.classList.remove('active');
-                
-                // Активируем вкладку "Завершенные уроки"
-                completedTab.classList.add('active');
-                completedPane.classList.add('active', 'show');
-                
-                console.log('Переключились на вкладку "Завершенные уроки"');
-            }
-        }, 100);
-    }
-});
-</script>
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <div class="text-center py-5">
+            <i class="bi bi-house display-1 text-primary mb-3"></i>
+            <h4 class="text-muted">Добро пожаловать на платформу!</h4>
+            <p class="text-muted">Используйте меню навигации для работы с приложением.</p>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
